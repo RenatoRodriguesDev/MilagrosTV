@@ -89,7 +89,9 @@
     {{-- Sticky player --}}
     <div id="player-section" class="hidden sticky top-16 z-30 mb-6 -mx-6 px-6 bg-[#0a0a0a]/95 backdrop-blur py-4 border-b border-white/5">
         <div class="rounded-xl overflow-hidden bg-black shadow-2xl border border-white/5">
-            <video id="video-player" controls class="w-full max-h-[480px] bg-black" preload="metadata"></video>
+            <video id="video-player" controls class="w-full max-h-[480px] bg-black" preload="metadata" style="display:none"></video>
+            <iframe id="iframe-player" class="w-full bg-black" style="height:480px;display:none;"
+                allowfullscreen allow="autoplay; fullscreen" frameborder="0"></iframe>
         </div>
         <div class="flex items-center justify-between mt-2 px-1">
             <p id="player-label" class="text-gray-400 text-xs font-medium"></p>
@@ -117,8 +119,9 @@
     @foreach($episodes as $season => $eps)
     <div id="season-{{ $season }}" class="season-list {{ !$loop->first ? 'hidden' : '' }} space-y-2">
         @foreach($eps as $ep)
+        @php $embedUrl = $ep->isExternalUrl() ? $ep->embedUrl() : null; @endphp
         <div class="group flex items-center gap-4 bg-white/5 hover:bg-white/8 rounded-xl px-5 py-4 transition border border-white/5 hover:border-white/10 cursor-pointer"
-             @if($ep->video_path) onclick="playEpisode({{ $ep->id }}, '{{ addslashes($ep->label) }}')" @endif>
+             @if($ep->video_path) onclick="playEpisode({{ $ep->id }}, '{{ addslashes($ep->label) }}', {{ $embedUrl ? "'" . addslashes($embedUrl) . "'" : 'null' }})" @endif>
 
             {{-- Episode number --}}
             <div class="w-12 flex-shrink-0 text-center">
@@ -173,22 +176,44 @@ function showSeason(season) {
     tab.classList.add('bg-red-600', 'text-white', 'shadow-lg', 'shadow-red-600/20');
 }
 
-function playEpisode(episodeId, label) {
-    const player  = document.getElementById('video-player');
+function playEpisode(episodeId, label, embedUrl = null) {
+    const video   = document.getElementById('video-player');
+    const iframe  = document.getElementById('iframe-player');
     const section = document.getElementById('player-section');
     const lbl     = document.getElementById('player-label');
-    player.src    = '/video/episode/' + episodeId;
+
+    // Reset both
+    video.pause();
+    video.src = '';
+    video.style.display = 'none';
+    iframe.src = '';
+    iframe.style.display = 'none';
+
+    if (embedUrl) {
+        // External URL (ok.ru, YouTube, etc.)
+        iframe.src = embedUrl;
+        iframe.style.display = 'block';
+    } else {
+        // Local file
+        video.src = '/video/episode/' + episodeId;
+        video.style.display = 'block';
+        setTimeout(() => video.play(), 300);
+    }
+
     lbl.textContent = label;
     section.classList.remove('hidden');
     window.scrollTo({ top: 0, behavior: 'smooth' });
-    setTimeout(() => player.play(), 300);
 }
 
 function closePlayer() {
-    const player  = document.getElementById('video-player');
+    const video   = document.getElementById('video-player');
+    const iframe  = document.getElementById('iframe-player');
     const section = document.getElementById('player-section');
-    player.pause();
-    player.src = '';
+    video.pause();
+    video.src = '';
+    video.style.display = 'none';
+    iframe.src = '';
+    iframe.style.display = 'none';
     section.classList.add('hidden');
 }
 </script>
