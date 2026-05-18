@@ -3,6 +3,7 @@
     "nav.movies": "Movies",
     "nav.series": "Series",
 
+    "catalog.featured": "Featured",
     "catalog.title": "Our catalogue 🎬",
     "catalog.search_placeholder": "Search...",
     "catalog.all_genres": "All genres",

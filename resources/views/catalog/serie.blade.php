@@ -1,98 +1,154 @@
 @extends('layouts.app')
 
-@section('title', $serie->title . ' — MilagrosTV')
+@section('title', $serie->localTitle() . ' — MilagrosTV')
 
 @section('content')
 
 {{-- Hero --}}
-<div class="relative bg-gradient-to-b from-gray-900 to-black px-6 pt-10 pb-8">
-    <div class="max-w-5xl mx-auto flex gap-8 items-start">
+<div class="relative min-h-[50vh] flex items-end overflow-hidden">
+    {{-- Blurred background --}}
+    @if($serie->poster_url)
+    <div class="absolute inset-0">
+        <img src="{{ $serie->poster_url }}" alt="" class="w-full h-full object-cover object-top scale-110" style="filter: blur(20px); transform-origin: top center;">
+        <div class="absolute inset-0 bg-black/70"></div>
+        <div class="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/40 to-black/20"></div>
+        <div class="absolute inset-0 bg-gradient-to-r from-[#0a0a0a]/80 to-transparent"></div>
+    </div>
+    @else
+    <div class="absolute inset-0 bg-gradient-to-b from-gray-900 to-[#0a0a0a]"></div>
+    @endif
+
+    {{-- Content --}}
+    <div class="relative max-w-5xl mx-auto px-6 pt-28 pb-10 w-full flex gap-8 items-end">
+
+        {{-- Poster --}}
         @if($serie->poster_url)
-        <img src="{{ $serie->poster_url }}" alt="{{ $serie->title }}"
-             class="w-40 rounded-lg shadow-2xl flex-shrink-0 hidden sm:block">
+        <div class="hidden sm:block flex-shrink-0">
+            <img src="{{ $serie->poster_url }}" alt="{{ $serie->localTitle() }}"
+                 class="w-36 rounded-xl shadow-2xl border border-white/10">
+        </div>
         @endif
-        <div class="flex-1">
-            <a href="{{ route('catalog.index', ['type' => 'series']) }}" class="text-gray-400 hover:text-white text-sm mb-3 inline-block">{{ __('serie.back') }}</a>
-            <h1 class="text-3xl font-bold text-white mb-1">{{ $serie->localTitle() }}</h1>
+
+        {{-- Info --}}
+        <div class="flex-1 pb-2">
+            <a href="{{ route('catalog.index', ['type' => 'series']) }}"
+               class="inline-flex items-center gap-1 text-gray-400 hover:text-white text-xs font-medium transition mb-4 group">
+                <span class="group-hover:-translate-x-0.5 transition-transform">←</span>
+                {{ __('serie.back') }}
+            </a>
+
+            <h1 class="text-3xl sm:text-4xl font-black text-white mb-2 leading-tight">{{ $serie->localTitle() }}</h1>
+
             @if($serie->original_title && $serie->original_title !== $serie->title)
-                <p class="text-gray-400 text-sm mb-2">{{ $serie->original_title }}</p>
+            <p class="text-gray-400 text-sm mb-3 font-medium">{{ $serie->original_title }}</p>
             @endif
-            <div class="flex flex-wrap gap-3 text-sm text-gray-400 mb-3">
-                @if($serie->year) <span>{{ $serie->year }}</span> @endif
-                @if($serie->seasons) <span>· {{ $serie->seasons }} {{ __('serie.seasons') }}</span> @endif
-                @if($serie->rating) <span class="text-yellow-400">★ {{ number_format($serie->rating, 1) }}</span> @endif
+
+            <div class="flex flex-wrap items-center gap-3 text-sm mb-4">
+                @if($serie->year)
+                <span class="text-gray-300 font-medium">{{ $serie->year }}</span>
+                @endif
+                @if($serie->seasons)
+                <span class="text-gray-500">·</span>
+                <span class="text-gray-300">{{ $serie->seasons }} {{ __('serie.seasons') }}</span>
+                @endif
+                @if($serie->rating)
+                <span class="text-gray-500">·</span>
+                <span class="flex items-center gap-1 text-yellow-400 font-bold">
+                    ★ {{ number_format($serie->rating, 1) }}
+                </span>
+                @endif
             </div>
+
             @if(!empty($serie->localGenres()))
-                <div class="flex flex-wrap gap-2 mb-4">
-                    @foreach($serie->localGenres() as $genre)
-                        <span class="bg-gray-700 text-gray-200 text-xs px-2 py-1 rounded">{{ $genre }}</span>
-                    @endforeach
-                </div>
+            <div class="flex flex-wrap gap-2 mb-4">
+                @foreach($serie->localGenres() as $genre)
+                <span class="bg-white/10 text-gray-200 text-xs px-3 py-1 rounded-full border border-white/10 font-medium">
+                    {{ $genre }}
+                </span>
+                @endforeach
+            </div>
             @endif
+
             @if($serie->synopsis)
-                <p class="text-gray-300 text-sm leading-relaxed max-w-2xl">{{ $serie->localSynopsis() }}</p>
+            <p class="text-gray-300 text-sm leading-relaxed max-w-2xl line-clamp-3">{{ $serie->localSynopsis() }}</p>
             @endif
         </div>
     </div>
 </div>
 
-{{-- Player + Episódios --}}
-<div class="max-w-5xl mx-auto px-6 pb-16 mt-8">
+{{-- Main content --}}
+<div class="max-w-5xl mx-auto px-6 pb-20">
 
     @if($episodes->isEmpty())
-        <div class="text-center py-16 text-gray-500">
-            <p class="text-4xl mb-3">📭</p>
-            <p>{{ __('serie.no_episodes') }}</p>
-        </div>
+    <div class="text-center py-20 text-gray-600">
+        <p class="text-5xl mb-4">📭</p>
+        <p class="text-lg">{{ __('serie.no_episodes') }}</p>
+    </div>
     @else
 
-    {{-- Player --}}
-    <div id="player-section" class="mb-8 hidden">
-        <div class="bg-black rounded-xl overflow-hidden shadow-2xl">
-            <video id="video-player" controls class="w-full max-h-[520px] bg-black" preload="metadata">
-                <p class="text-gray-400 p-4">O teu browser não suporta reprodução de vídeo.</p>
-            </video>
+    {{-- Sticky player --}}
+    <div id="player-section" class="hidden sticky top-16 z-30 mb-6 -mx-6 px-6 bg-[#0a0a0a]/95 backdrop-blur py-4 border-b border-white/5">
+        <div class="rounded-xl overflow-hidden bg-black shadow-2xl border border-white/5">
+            <video id="video-player" controls class="w-full max-h-[480px] bg-black" preload="metadata"></video>
         </div>
-        <p id="player-label" class="text-gray-300 text-sm mt-2 px-1"></p>
+        <div class="flex items-center justify-between mt-2 px-1">
+            <p id="player-label" class="text-gray-400 text-xs font-medium"></p>
+            <button onclick="closePlayer()" class="text-gray-600 hover:text-white text-xs transition">✕ Fechar</button>
+        </div>
     </div>
 
-    {{-- Tabs de temporada --}}
-    <div class="flex gap-2 mb-6 flex-wrap">
+    {{-- Season tabs --}}
+    @if($episodes->count() > 1 || $episodes->keys()->count() > 1)
+    <div class="flex gap-2 mb-6 mt-8 flex-wrap">
         @foreach($episodes->keys() as $season)
-            <button onclick="showSeason({{ $season }})"
-                id="tab-{{ $season }}"
-                class="season-tab px-4 py-2 rounded text-sm font-medium transition
-                       {{ $loop->first ? 'bg-red-600 text-white' : 'bg-gray-800 text-gray-300 hover:bg-gray-700' }}">
-                {{ __('serie.season') }} {{ $season }}
-            </button>
+        <button onclick="showSeason({{ $season }})"
+            id="tab-{{ $season }}"
+            class="season-tab px-5 py-2 rounded-lg text-sm font-semibold transition
+                   {{ $loop->first ? 'bg-red-600 text-white shadow-lg shadow-red-600/20' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white border border-white/10' }}">
+            {{ __('serie.season') }} {{ $season }}
+        </button>
         @endforeach
     </div>
+    @else
+    <div class="mt-8"></div>
+    @endif
 
-    {{-- Listas de episódios --}}
+    {{-- Episodes --}}
     @foreach($episodes as $season => $eps)
-    <div id="season-{{ $season }}" class="season-list {{ !$loop->first ? 'hidden' : '' }}">
-        <div class="grid gap-2">
-            @foreach($eps as $ep)
-            <div class="flex items-center gap-4 bg-gray-800 hover:bg-gray-700 rounded-lg px-4 py-3 transition">
-                <div class="w-16 text-center flex-shrink-0">
-                    <span class="text-red-500 font-bold text-sm">T{{ $ep->season }}E{{ $ep->episode }}</span>
-                </div>
-                <div class="flex-1 min-w-0">
-                    <p class="text-white text-sm font-medium truncate">
-                        {{ $ep->title ?: __('serie.episode') . ' ' . $ep->episode }}
-                    </p>
-                </div>
+    <div id="season-{{ $season }}" class="season-list {{ !$loop->first ? 'hidden' : '' }} space-y-2">
+        @foreach($eps as $ep)
+        <div class="group flex items-center gap-4 bg-white/5 hover:bg-white/8 rounded-xl px-5 py-4 transition border border-white/5 hover:border-white/10 cursor-pointer"
+             @if($ep->video_path) onclick="playEpisode({{ $ep->id }}, '{{ addslashes($ep->label) }}')" @endif>
+
+            {{-- Episode number --}}
+            <div class="w-12 flex-shrink-0 text-center">
                 @if($ep->video_path)
-                <button onclick="playEpisode({{ $ep->id }}, '{{ addslashes($ep->label) }}')"
-                    class="flex-shrink-0 bg-red-600 hover:bg-red-700 text-white text-xs px-4 py-2 rounded font-semibold transition">
-                    {{ __('serie.play') }}
-                </button>
+                <div class="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center group-hover:bg-red-600 group-hover:border-red-600 transition mx-auto">
+                    <span class="text-gray-400 group-hover:text-white text-xs font-bold transition">{{ $ep->episode }}</span>
+                </div>
                 @else
-                <span class="flex-shrink-0 text-gray-500 text-xs px-4 py-2">{{ __('serie.no_video') }}</span>
+                <span class="text-gray-600 text-sm font-bold">{{ $ep->episode }}</span>
                 @endif
             </div>
-            @endforeach
+
+            {{-- Info --}}
+            <div class="flex-1 min-w-0">
+                <p class="text-white text-sm font-semibold truncate">
+                    {{ $ep->title ?: __('serie.episode') . ' ' . $ep->episode }}
+                </p>
+                <p class="text-gray-500 text-xs mt-0.5">T{{ $ep->season }}E{{ $ep->episode }}</p>
+            </div>
+
+            {{-- Action --}}
+            @if($ep->video_path)
+            <div class="flex-shrink-0 opacity-0 group-hover:opacity-100 transition flex items-center gap-2">
+                <span class="text-red-500 text-sm font-bold">{{ __('serie.play') }}</span>
+            </div>
+            @else
+            <span class="flex-shrink-0 text-gray-700 text-xs">{{ __('serie.no_video') }}</span>
+            @endif
         </div>
+        @endforeach
     </div>
     @endforeach
 
@@ -106,13 +162,15 @@
 function showSeason(season) {
     document.querySelectorAll('.season-list').forEach(el => el.classList.add('hidden'));
     document.querySelectorAll('.season-tab').forEach(el => {
-        el.classList.remove('bg-red-600', 'text-white');
-        el.classList.add('bg-gray-800', 'text-gray-300');
+        el.className = el.className
+            .replace('bg-red-600 text-white shadow-lg shadow-red-600/20', '')
+            .replace('bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white border border-white/10', '');
+        el.classList.add('bg-white/5', 'text-gray-400', 'hover:bg-white/10', 'hover:text-white', 'border', 'border-white/10');
     });
     document.getElementById('season-' + season).classList.remove('hidden');
     const tab = document.getElementById('tab-' + season);
-    tab.classList.add('bg-red-600', 'text-white');
-    tab.classList.remove('bg-gray-800', 'text-gray-300');
+    tab.classList.remove('bg-white/5', 'text-gray-400', 'hover:bg-white/10', 'hover:text-white', 'border', 'border-white/10');
+    tab.classList.add('bg-red-600', 'text-white', 'shadow-lg', 'shadow-red-600/20');
 }
 
 function playEpisode(episodeId, label) {
@@ -122,8 +180,16 @@ function playEpisode(episodeId, label) {
     player.src    = '/video/episode/' + episodeId;
     lbl.textContent = label;
     section.classList.remove('hidden');
-    section.scrollIntoView({ behavior: 'smooth', block: 'start' });
-    player.play();
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    setTimeout(() => player.play(), 300);
+}
+
+function closePlayer() {
+    const player  = document.getElementById('video-player');
+    const section = document.getElementById('player-section');
+    player.pause();
+    player.src = '';
+    section.classList.add('hidden');
 }
 </script>
 @endpush
