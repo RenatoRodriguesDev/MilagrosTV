@@ -40,9 +40,6 @@
         /* Season tabs */
         .season-tab { transition: all 0.2s; }
 
-        /* Video player */
-        video::-webkit-media-controls { background: rgba(0,0,0,0.6); }
-
         /* Scrollbar */
         ::-webkit-scrollbar { width: 6px; }
         ::-webkit-scrollbar-track { background: #111; }

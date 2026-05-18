@@ -86,16 +86,21 @@
     </div>
     @else
 
-    {{-- Sticky player --}}
-    <div id="player-section" class="hidden sticky top-16 z-30 mb-6 -mx-6 px-6 bg-[#0a0a0a]/95 backdrop-blur py-4 border-b border-white/5">
-        <div class="rounded-xl overflow-hidden bg-black shadow-2xl border border-white/5">
-            <video id="video-player" controls class="w-full max-h-[480px] bg-black" preload="metadata" style="display:none"></video>
-            <iframe id="iframe-player" class="w-full bg-black" style="height:480px;display:none;"
-                allowfullscreen allow="autoplay; fullscreen" frameborder="0"></iframe>
-        </div>
-        <div class="flex items-center justify-between mt-2 px-1">
-            <p id="player-label" class="text-gray-400 text-xs font-medium"></p>
-            <button onclick="closePlayer()" class="text-gray-600 hover:text-white text-xs transition">✕ Fechar</button>
+    {{-- Modal player --}}
+    <div id="player-modal" class="hidden fixed inset-0 z-[999] flex items-center justify-center p-4" style="background:#000;">
+        <div class="w-full max-w-4xl">
+            <div class="flex items-center justify-between mb-3">
+                <p id="player-label" class="text-gray-300 text-sm font-medium"></p>
+                <button onclick="closePlayer()" class="text-gray-400 hover:text-white transition text-sm flex items-center gap-1">
+                    ✕ Fechar
+                </button>
+            </div>
+            <div style="background:#000;border-radius:12px;line-height:0;">
+                <video id="video-player" controls style="width:100%;max-height:70vh;display:none;border-radius:12px;"></video>
+                <iframe id="iframe-player" frameborder="0" allowfullscreen
+                    allow="autoplay; fullscreen"
+                    style="width:100%;height:70vh;display:none;border:none;border-radius:12px;"></iframe>
+            </div>
         </div>
     </div>
 
@@ -177,12 +182,11 @@ function showSeason(season) {
 }
 
 function playEpisode(episodeId, label, embedUrl = null) {
-    const video   = document.getElementById('video-player');
-    const iframe  = document.getElementById('iframe-player');
-    const section = document.getElementById('player-section');
-    const lbl     = document.getElementById('player-label');
+    const video  = document.getElementById('video-player');
+    const iframe = document.getElementById('iframe-player');
+    const modal  = document.getElementById('player-modal');
+    const lbl    = document.getElementById('player-label');
 
-    // Reset both
     video.pause();
     video.src = '';
     video.style.display = 'none';
@@ -190,31 +194,35 @@ function playEpisode(episodeId, label, embedUrl = null) {
     iframe.style.display = 'none';
 
     if (embedUrl) {
-        // External URL (ok.ru, YouTube, etc.)
         iframe.src = embedUrl;
         iframe.style.display = 'block';
     } else {
-        // Local file
         video.src = '/video/episode/' + episodeId;
         video.style.display = 'block';
         setTimeout(() => video.play(), 300);
     }
 
     lbl.textContent = label;
-    section.classList.remove('hidden');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
 }
 
 function closePlayer() {
-    const video   = document.getElementById('video-player');
-    const iframe  = document.getElementById('iframe-player');
-    const section = document.getElementById('player-section');
+    const video  = document.getElementById('video-player');
+    const iframe = document.getElementById('iframe-player');
+    const modal  = document.getElementById('player-modal');
     video.pause();
     video.src = '';
     video.style.display = 'none';
     iframe.src = '';
     iframe.style.display = 'none';
-    section.classList.add('hidden');
+    modal.classList.add('hidden');
+    document.body.style.overflow = '';
 }
+
+// Fechar ao clicar fora
+document.getElementById('player-modal')?.addEventListener('click', function(e) {
+    if (e.target === this) closePlayer();
+});
 </script>
 @endpush
