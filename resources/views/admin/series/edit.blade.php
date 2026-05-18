@@ -135,7 +135,7 @@ async function scanFolder() {
     errEl.classList.add('hidden');
     resEl.classList.add('hidden');
 
-    const res  = await fetch(`${scanRoute}?folder=${encodeURIComponent(folder)}`);
+    const res  = await fetch(`${scanRoute}?folder=${encodeURIComponent(folder)}`, { credentials: 'same-origin' });
     const data = await res.json();
 
     if (!res.ok) {
