@@ -1,0 +1,28 @@
+{
+    "nav.home": "Home",
+    "nav.movies": "Movies",
+    "nav.series": "Series",
+
+    "catalog.title": "Our catalogue 🎬",
+    "catalog.search_placeholder": "Search...",
+    "catalog.all_genres": "All genres",
+    "catalog.all": "All",
+    "catalog.movies": "Movies",
+    "catalog.series": "Series",
+    "catalog.filter": "Filter",
+    "catalog.clear": "Clear",
+    "catalog.no_results": "No results found.",
+    "catalog.no_results_emoji": "🔍",
+
+    "card.seasons": "seas.",
+    "card.mark_watched": "Mark as watched",
+    "card.watched": "✓ Watched",
+
+    "serie.back": "← Series",
+    "serie.seasons": "seasons",
+    "serie.season": "Season",
+    "serie.episode": "Episode",
+    "serie.play": "▶ Play",
+    "serie.no_episodes": "No episodes available yet.",
+    "serie.no_video": "No video"
+}

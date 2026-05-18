@@ -1,0 +1,28 @@
+{
+    "nav.home": "Início",
+    "nav.movies": "Filmes",
+    "nav.series": "Séries",
+
+    "catalog.title": "O nosso catálogo 🎬",
+    "catalog.search_placeholder": "Pesquisar...",
+    "catalog.all_genres": "Todos os géneros",
+    "catalog.all": "Todos",
+    "catalog.movies": "Filmes",
+    "catalog.series": "Séries",
+    "catalog.filter": "Filtrar",
+    "catalog.clear": "Limpar",
+    "catalog.no_results": "Nenhum resultado encontrado.",
+    "catalog.no_results_emoji": "🔍",
+
+    "card.seasons": "temp.",
+    "card.mark_watched": "Marcar como visto",
+    "card.watched": "✓ Visto",
+
+    "serie.back": "← Séries",
+    "serie.seasons": "temporadas",
+    "serie.season": "Temporada",
+    "serie.episode": "Episódio",
+    "serie.play": "▶ Reproduzir",
+    "serie.no_episodes": "Ainda não há episódios disponíveis.",
+    "serie.no_video": "Sem vídeo"
+}

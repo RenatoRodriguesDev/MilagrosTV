@@ -1,0 +1,19 @@
+services:
+  app:
+    build: .
+    ports:
+      - "8080:80"
+    volumes:
+      - db_data:/var/www/database
+      - storage_data:/var/www/storage/app
+      - /mnt/c/Users/Renato/Downloads/Series:/var/www/storage/app/videos
+    env_file:
+      - .env
+    environment:
+      APP_ENV: local
+      APP_DEBUG: "true"
+    restart: unless-stopped
+
+volumes:
+  db_data:
+  storage_data:
