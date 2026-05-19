@@ -40,4 +40,9 @@ return [
         'language' => env('TMDB_LANGUAGE', 'pt-BR'),
     ],
 
+    'jackett' => [
+        'url' => env('JACKETT_URL', 'http://jackett:9117'),
+        'key' => env('JACKETT_KEY'),
+    ],
+
 ];

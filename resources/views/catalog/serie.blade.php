@@ -70,8 +70,58 @@
             @endif
 
             @if($serie->synopsis)
-            <p class="text-gray-300 text-sm leading-relaxed max-w-2xl line-clamp-3">{{ $serie->localSynopsis() }}</p>
+            <p class="text-gray-300 text-sm leading-relaxed max-w-2xl line-clamp-3 mb-4">{{ $serie->localSynopsis() }}</p>
             @endif
+
+            {{-- Torrent search button --}}
+            <button onclick="openTorrents('{{ addslashes($serie->localTitle()) }}', 'series')"
+                class="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
+                🧲 Encontrar streams
+            </button>
+        </div>
+    </div>
+</div>
+
+{{-- Torrent modal --}}
+<div id="torrent-modal" class="hidden fixed inset-0 z-[999] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.92);">
+    <div class="w-full max-w-3xl max-h-[85vh] flex flex-col bg-gray-900 rounded-2xl border border-white/10 shadow-2xl">
+        <div class="flex items-center justify-between px-6 py-4 border-b border-white/10 flex-shrink-0">
+            <div>
+                <h3 class="font-bold text-white">🧲 Encontrar streams</h3>
+                <p id="torrent-query-label" class="text-gray-400 text-xs mt-0.5"></p>
+            </div>
+            <button onclick="closeTorrents()" class="text-gray-500 hover:text-white transition text-xl">✕</button>
+        </div>
+        <div class="px-6 py-3 border-b border-white/5 flex-shrink-0">
+            <div class="flex gap-2">
+                <input type="text" id="torrent-search-input"
+                    class="flex-1 bg-white/5 border border-white/10 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-500"
+                    placeholder="Pesquisar...">
+                <button onclick="doTorrentSearch()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
+                    Pesquisar
+                </button>
+            </div>
+        </div>
+        <div id="torrent-results" class="overflow-y-auto flex-1 px-4 py-3">
+            <div id="torrent-loading" class="hidden text-center py-12">
+                <div class="w-8 h-8 border-4 border-white/10 border-t-red-500 rounded-full animate-spin inline-block"></div>
+            </div>
+            {{-- WebTorrent player inline --}}
+            <div id="wt-player-box" class="hidden mb-3">
+                <div class="bg-black rounded-xl overflow-hidden">
+                    <video id="wt-video" controls class="w-full" style="max-height:300px;"></video>
+                </div>
+                <div class="flex items-center justify-between mt-2 text-xs px-1">
+                    <span id="wt-status" class="text-gray-400">A carregar...</span>
+                    <button onclick="stopWebTorrent()" class="text-gray-600 hover:text-red-400 transition">✕ Parar</button>
+                </div>
+                <div class="w-full bg-white/5 rounded-full h-1 mt-1">
+                    <div id="wt-progress" class="bg-red-500 h-1 rounded-full transition-all" style="width:0%"></div>
+                </div>
+            </div>
+
+            <div id="torrent-list" class="space-y-2"></div>
+            <p id="torrent-empty" class="hidden text-center text-gray-500 py-12 text-sm">Nenhum resultado encontrado.</p>
         </div>
     </div>
 </div>
@@ -153,7 +203,10 @@
                 <span class="text-red-500 text-sm font-bold">{{ __('serie.play') }}</span>
             </div>
             @else
-            <span class="flex-shrink-0 text-gray-700 text-xs">{{ __('serie.no_video') }}</span>
+            <button onclick="event.stopPropagation(); openTorrents('{{ addslashes($serie->localTitle()) }} S{{ str_pad($ep->season,2,'0',STR_PAD_LEFT) }}E{{ str_pad($ep->episode,2,'0',STR_PAD_LEFT) }}', 'series')"
+                class="flex-shrink-0 text-gray-500 hover:text-orange-400 text-xs transition flex items-center gap-1">
+                🧲 <span>Encontrar</span>
+            </button>
             @endif
         </div>
         @endforeach
@@ -223,6 +276,149 @@ function closePlayer() {
 // Fechar ao clicar fora
 document.getElementById('player-modal')?.addEventListener('click', function(e) {
     if (e.target === this) closePlayer();
+});
+
+// ── Torrents ──────────────────────────────────────────────────────────────────
+let torrentType = 'series';
+
+function openTorrents(query, type = 'series') {
+    torrentType = type;
+    document.getElementById('torrent-search-input').value = query;
+    document.getElementById('torrent-query-label').textContent = query;
+    document.getElementById('torrent-modal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    doTorrentSearch();
+}
+
+async function doTorrentSearch() {
+    const query   = document.getElementById('torrent-search-input').value.trim();
+    if (!query) return;
+
+    const loading = document.getElementById('torrent-loading');
+    const list    = document.getElementById('torrent-list');
+    const empty   = document.getElementById('torrent-empty');
+
+    loading.classList.remove('hidden');
+    list.innerHTML = '';
+    empty.classList.add('hidden');
+
+    try {
+        const res     = await fetch(`/torrents/search?query=${encodeURIComponent(query)}&type=${torrentType}`);
+        const results = await res.json();
+        loading.classList.add('hidden');
+
+        if (!results.length) { empty.classList.remove('hidden'); return; }
+
+        // Store magnets by index to avoid HTML escaping issues
+        window._magnets = {};
+        list.innerHTML = results.map((r, i) => {
+            if (r.magnet) window._magnets[i] = r.magnet;
+            return `
+            <div class="flex items-center gap-3 bg-white/5 hover:bg-white/8 rounded-xl px-4 py-3 border border-white/5 transition">
+                <div class="flex-1 min-w-0">
+                    <p class="text-white text-sm font-medium truncate">${r.title}</p>
+                    <p class="text-gray-500 text-xs mt-0.5">${r.indexer} · ${r.size} · ${r.published || ''}</p>
+                </div>
+                <div class="flex items-center gap-1 text-green-400 text-xs flex-shrink-0 mr-1">
+                    <span>▲</span><span>${r.seeders}</span>
+                </div>
+                ${r.magnet ? `
+                <button onclick="playWebTorrent(${i})"
+                    class="flex-shrink-0 bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1.5 rounded-lg font-semibold transition">
+                    ▶ Reproduzir
+                </button>
+                <a href="${r.magnet}" class="flex-shrink-0 bg-white/10 hover:bg-white/20 text-white text-xs px-3 py-1.5 rounded-lg transition">
+                    🧲
+                </a>` : ''}
+            </div>`;
+        }).join('');
+    } catch(e) {
+        loading.classList.add('hidden');
+        empty.textContent = 'Erro ao pesquisar. Verifica se o Jackett está activo.';
+        empty.classList.remove('hidden');
+    }
+}
+
+document.getElementById('torrent-modal')?.addEventListener('click', function(e) {
+    if (e.target === this) closeTorrents();
+});
+
+// ── Torrent streaming via servidor local ──────────────────────────────────────
+const STREAM_SERVER = 'http://localhost:9090';
+let progressInterval = null;
+
+async function playWebTorrent(idx) {
+    const magnet = window._magnets[idx];
+    if (!magnet) return;
+
+    const box      = document.getElementById('wt-player-box');
+    const video    = document.getElementById('wt-video');
+    const status   = document.getElementById('wt-status');
+    const progress = document.getElementById('wt-progress');
+
+    stopWebTorrent();
+    box.classList.remove('hidden');
+    status.textContent   = 'A procurar peers e carregar metadados... (pode demorar 30s)';
+    progress.style.width = '0%';
+
+    // Animate progress bar while waiting for preload
+    let pct = 0;
+    progressInterval = setInterval(() => {
+        pct = Math.min(pct + 1.5, 80);
+        progress.style.width = pct + '%';
+    }, 500);
+
+    try {
+        // Step 1: preload — waits until torrent is ready on the server
+        const preloadRes = await fetch(`${STREAM_SERVER}/preload?magnet=${encodeURIComponent(magnet)}`);
+        if (!preloadRes.ok) {
+            const err = await preloadRes.json().catch(() => ({ error: 'Sem resposta do servidor' }));
+            throw new Error(err.error || 'Falha no preload');
+        }
+        const info = await preloadRes.json();
+
+        clearInterval(progressInterval);
+        progressInterval = null;
+        progress.style.width = '90%';
+        status.textContent = `A iniciar: ${info.name || '...'} (${info.peers} peers)`;
+
+        // Step 2: now the torrent is ready — stream immediately
+        const streamUrl = `${STREAM_SERVER}/stream?magnet=${encodeURIComponent(magnet)}`;
+        video.src = streamUrl;
+        video.play().catch(() => {});
+
+        video.onloadedmetadata = () => {
+            status.textContent   = '▶ A reproduzir via torrent stream';
+            progress.style.width = '100%';
+        };
+
+        video.onerror = () => {
+            status.textContent = '⚠ Erro ao reproduzir — tenta novamente.';
+        };
+
+    } catch(e) {
+        clearInterval(progressInterval);
+        progressInterval = null;
+        progress.style.width = '0%';
+        status.textContent = `✗ ${e.message}`;
+    }
+}
+
+function stopWebTorrent() {
+    if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
+    const video = document.getElementById('wt-video');
+    if (video) { video.pause(); video.src = ''; }
+    document.getElementById('wt-player-box')?.classList.add('hidden');
+}
+
+function closeTorrents() {
+    stopWebTorrent();
+    document.getElementById('torrent-modal').classList.add('hidden');
+    document.body.style.overflow = '';
+}
+
+document.getElementById('torrent-search-input')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') doTorrentSearch();
 });
 </script>
 @endpush

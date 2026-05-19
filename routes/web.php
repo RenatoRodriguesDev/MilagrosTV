@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\CatalogController;
+use App\Http\Controllers\TorrentController;
 use App\Http\Controllers\VideoController;
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\EpisodeController;
@@ -21,6 +22,7 @@ Route::get('/', [CatalogController::class, 'index'])->name('catalog.index');
 Route::get('/series/{serie}', [CatalogController::class, 'serie'])->name('catalog.serie');
 Route::post('/watched', [CatalogController::class, 'toggleWatched'])->name('catalog.watched');
 Route::get('/video/episode/{episode}', [VideoController::class, 'stream'])->name('video.episode');
+Route::get('/torrents/search', [TorrentController::class, 'search'])->name('torrents.search');
 
 // Admin - autenticação
 Route::get('/admin/login', [AuthController::class, 'showLogin'])->name('admin.login');
