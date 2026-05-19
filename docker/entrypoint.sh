@@ -7,6 +7,14 @@ if [ ! -f /var/www/database/database.sqlite ]; then
     chown www-data:www-data /var/www/database/database.sqlite
 fi
 
+# Garante pastas de storage com permissões correctas
+mkdir -p /var/www/storage/framework/cache/data \
+         /var/www/storage/framework/sessions \
+         /var/www/storage/framework/views \
+         /var/www/storage/logs
+chown -R www-data:www-data /var/www/storage
+chmod -R 775 /var/www/storage
+
 # Executa migrations
 php artisan migrate --force
 
