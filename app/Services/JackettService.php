@@ -23,10 +23,11 @@ class JackettService
             default  => [2000, 5000],
         };
 
-        $response = Http::timeout(15)->get("{$this->baseUrl}/api/v2.0/indexers/all/results", [
+        $response = Http::timeout(20)->get("{$this->baseUrl}/api/v2.0/indexers/all/results", [
             'apikey'     => $this->apiKey,
             'Query'      => $query,
             'Category'   => $categories,
+            'Limit'      => 200,
         ]);
 
         if (!$response->successful()) return [];
@@ -70,7 +71,7 @@ class JackettService
             })
             ->sortByDesc('seeders')
             ->values()
-            ->take(30)
+            ->take(100)
             ->toArray();
     }
 

@@ -25,61 +25,40 @@ const MIME = {
 
 const VIDEO_EXT = Object.keys(MIME);
 
-// Cache .torrent URL → infoHash so we can find it on re-use
-const urlToHash = new Map();
+const urlToHash  = new Map(); // .torrent URL → infoHash
+const inFlight   = new Map(); // magnetOrUrl  → Promise<torrent>
 
-async function getOrAdd(magnetOrUrl) {
-    // ── .torrent file URL (not a magnet URI) ─────────────────────────────────
-    if (!magnetOrUrl.startsWith('magnet:')) {
-        // Check cache first
-        if (urlToHash.has(magnetOrUrl)) {
-            const hash     = urlToHash.get(magnetOrUrl);
-            const existing = client.torrents.find(t => t.infoHash === hash);
-            if (existing) {
-                if (existing.ready) return existing;
-                return new Promise((resolve, reject) => {
-                    const t = setTimeout(() => reject(new Error('Timeout')), 30000);
-                    existing.once('ready', () => { clearTimeout(t); resolve(existing); });
-                    existing.once('error', err => { clearTimeout(t); reject(err); });
-                });
-            }
+function findExisting(magnetOrUrl) {
+    if (magnetOrUrl.startsWith('magnet:')) {
+        const m = magnetOrUrl.match(/xt=urn:btih:([a-fA-F0-9]{40})/i);
+        if (m) {
+            const hash = m[1].toLowerCase();
+            return client.torrents.find(t => t.infoHash === hash) ?? null;
         }
+    } else if (urlToHash.has(magnetOrUrl)) {
+        const hash = urlToHash.get(magnetOrUrl);
+        return client.torrents.find(t => t.infoHash === hash) ?? null;
+    }
+    return null;
+}
 
+function waitForReady(torrent) {
+    return new Promise((resolve, reject) => {
+        if (torrent.ready) return resolve(torrent);
+        const timeout = setTimeout(() => reject(new Error('Timeout aguardando torrent')), 30000);
+        torrent.once('ready', () => { clearTimeout(timeout); resolve(torrent); });
+        torrent.once('error', err => { clearTimeout(timeout); reject(err); });
+    });
+}
+
+async function addNew(magnetOrUrl) {
+    let torrentId = magnetOrUrl;
+
+    if (!magnetOrUrl.startsWith('magnet:')) {
         console.log('Fetching .torrent file:', magnetOrUrl);
         const resp = await fetch(magnetOrUrl);
         if (!resp.ok) throw new Error(`Failed to fetch .torrent: ${resp.status}`);
-        const buffer = Buffer.from(await resp.arrayBuffer());
-
-        return new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => reject(new Error('Timeout: não foi possível conectar a peers')), 30000);
-            let torrent;
-            try {
-                torrent = client.add(buffer, { path: '/tmp/torrents', destroyStoreOnDestroy: false });
-            } catch(e) { clearTimeout(timeout); return reject(e); }
-
-            console.log('Adding .torrent buffer, fetching metadata...');
-            torrent.once('metadata', () => console.log('Metadata received:', torrent.name));
-            torrent.once('ready', () => {
-                console.log('Torrent ready:', torrent.name);
-                urlToHash.set(magnetOrUrl, torrent.infoHash);
-                clearTimeout(timeout);
-                resolve(torrent);
-            });
-            torrent.once('error', err => { console.error('Torrent error:', err.message); clearTimeout(timeout); reject(err); });
-        });
-    }
-
-    // ── Magnet URI ────────────────────────────────────────────────────────────
-    // infoHash is always lowercase in WebTorrent; magnet URIs from indexers may be uppercase
-    const magnetLower = magnetOrUrl.toLowerCase();
-    const existing = client.torrents.find(t => t.infoHash && magnetLower.includes(t.infoHash));
-    if (existing) {
-        if (existing.ready) return existing;
-        return new Promise((resolve, reject) => {
-            const timeout = setTimeout(() => reject(new Error('Timeout aguardando torrent existente')), 30000);
-            existing.once('ready', () => { clearTimeout(timeout); resolve(existing); });
-            existing.once('error', err => { clearTimeout(timeout); reject(err); });
-        });
+        torrentId = Buffer.from(await resp.arrayBuffer());
     }
 
     return new Promise((resolve, reject) => {
@@ -87,18 +66,48 @@ async function getOrAdd(magnetOrUrl) {
 
         let torrent;
         try {
-            torrent = client.add(magnetOrUrl, { path: '/tmp/torrents', destroyStoreOnDestroy: false });
-        } catch(e) { clearTimeout(timeout); return reject(e); }
+            torrent = client.add(torrentId, { path: '/tmp/torrents', destroyStoreOnDestroy: false });
+        } catch(e) {
+            clearTimeout(timeout);
+            // Race condition: added by another concurrent request
+            if (e.message?.includes('duplicate')) {
+                const found = findExisting(magnetOrUrl);
+                if (found) return waitForReady(found).then(resolve, reject);
+            }
+            return reject(e);
+        }
 
         console.log('Adding torrent:', torrent.infoHash || 'fetching metadata...');
-        torrent.once('metadata', () => console.log('Metadata received:', torrent.name));
+        torrent.once('metadata', () => {
+            console.log('Metadata received:', torrent.name);
+            if (!magnetOrUrl.startsWith('magnet:')) urlToHash.set(magnetOrUrl, torrent.infoHash);
+        });
         torrent.once('ready', () => {
             console.log('Torrent ready:', torrent.name);
             clearTimeout(timeout);
             resolve(torrent);
         });
-        torrent.once('error', err => { console.error('Torrent error:', err.message); clearTimeout(timeout); reject(err); });
+        torrent.once('error', err => {
+            console.error('Torrent error:', err.message);
+            clearTimeout(timeout);
+            reject(err);
+        });
     });
+}
+
+async function getOrAdd(magnetOrUrl) {
+    // Re-use in-flight promise — prevents duplicate add when preload + stream race
+    if (inFlight.has(magnetOrUrl)) return inFlight.get(magnetOrUrl);
+
+    // Already in client and ready
+    const existing = findExisting(magnetOrUrl);
+    if (existing) return waitForReady(existing);
+
+    // Start and cache the promise
+    const promise = addNew(magnetOrUrl);
+    inFlight.set(magnetOrUrl, promise);
+    promise.finally(() => inFlight.delete(magnetOrUrl));
+    return promise;
 }
 
 app.get('/stream', async (req, res) => {

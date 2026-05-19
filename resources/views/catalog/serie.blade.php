@@ -101,6 +101,30 @@
                     Pesquisar
                 </button>
             </div>
+            {{-- Language filters --}}
+            <div class="flex gap-2 mt-2 flex-wrap">
+                <button onclick="setLangFilter(null)" id="filter-all"
+                    class="lang-filter px-3 py-1 rounded-full text-xs font-semibold transition bg-white/20 text-white">
+                    Todos
+                </button>
+                <button onclick="setLangFilter('DUAL')" id="filter-DUAL"
+                    class="lang-filter px-3 py-1 rounded-full text-xs font-semibold transition bg-white/5 text-gray-400 hover:text-white">
+                    🌐 DUAL
+                </button>
+                <button onclick="setLangFilter('ES')" id="filter-ES"
+                    class="lang-filter px-3 py-1 rounded-full text-xs font-semibold transition bg-white/5 text-gray-400 hover:text-white">
+                    🇪🇸 ES
+                </button>
+                <button onclick="setLangFilter('PT')" id="filter-PT"
+                    class="lang-filter px-3 py-1 rounded-full text-xs font-semibold transition bg-white/5 text-gray-400 hover:text-white">
+                    🇵🇹 PT
+                </button>
+                <button onclick="setLangFilter('EN')" id="filter-EN"
+                    class="lang-filter px-3 py-1 rounded-full text-xs font-semibold transition bg-white/5 text-gray-400 hover:text-white">
+                    🇬🇧 EN
+                </button>
+                <span id="filter-count" class="ml-auto text-xs text-gray-500 self-center"></span>
+            </div>
         </div>
         <div id="torrent-results" class="overflow-y-auto flex-1 px-4 py-3">
             <div id="torrent-loading" class="hidden text-center py-12">
@@ -279,7 +303,9 @@ document.getElementById('player-modal')?.addEventListener('click', function(e) {
 });
 
 // ── Torrents ──────────────────────────────────────────────────────────────────
-let torrentType = 'series';
+let torrentType      = 'series';
+let allResults       = [];
+let activeLangFilter = null;
 
 function openTorrents(query, type = 'series') {
     torrentType = type;
@@ -287,11 +313,75 @@ function openTorrents(query, type = 'series') {
     document.getElementById('torrent-query-label').textContent = query;
     document.getElementById('torrent-modal').classList.remove('hidden');
     document.body.style.overflow = 'hidden';
+    setLangFilter(null, false);
     doTorrentSearch();
 }
 
+function setLangFilter(lang, render = true) {
+    activeLangFilter = lang;
+    document.querySelectorAll('.lang-filter').forEach(btn => {
+        btn.classList.remove('bg-white/20', 'text-white');
+        btn.classList.add('bg-white/5', 'text-gray-400');
+    });
+    const active = document.getElementById('filter-' + (lang ?? 'all'));
+    if (active) {
+        active.classList.remove('bg-white/5', 'text-gray-400');
+        active.classList.add('bg-white/20', 'text-white');
+    }
+    if (render && allResults.length) renderResults(allResults);
+}
+
+function renderResults(results) {
+    const list  = document.getElementById('torrent-list');
+    const empty = document.getElementById('torrent-empty');
+    const count = document.getElementById('filter-count');
+
+    const filtered = activeLangFilter
+        ? results.filter(r => detectLangBadges(r.title).some(b => b.label === activeLangFilter))
+        : results;
+
+    count.textContent = filtered.length + ' resultado' + (filtered.length !== 1 ? 's' : '');
+
+    if (!filtered.length) {
+        list.innerHTML = '';
+        empty.textContent = activeLangFilter
+            ? `Sem resultados "${activeLangFilter}". Tenta outro filtro.`
+            : 'Nenhum resultado encontrado.';
+        empty.classList.remove('hidden');
+        return;
+    }
+    empty.classList.add('hidden');
+
+    window._magnets = {};
+    list.innerHTML = filtered.map((r, i) => {
+        const playId = r.magnet || r.link;
+        if (playId) window._magnets[i] = playId;
+        const badges = detectLangBadges(r.title);
+        return `
+        <div class="flex items-center gap-3 bg-white/5 hover:bg-white/8 rounded-xl px-4 py-3 border border-white/5 transition">
+            <div class="flex-1 min-w-0">
+                <p class="text-white text-sm font-medium truncate">${r.title}</p>
+                <div class="flex items-center gap-2 mt-1 flex-wrap">
+                    <span class="text-gray-500 text-xs">${r.indexer} · ${r.size} · ${r.published || ''}</span>
+                    ${badges.map(b => `<span class="text-xs px-1.5 py-0.5 rounded font-bold ${b.cls}">${b.label}</span>`).join('')}
+                </div>
+            </div>
+            <div class="flex items-center gap-1 text-green-400 text-xs flex-shrink-0 mr-1">
+                <span>▲</span><span>${r.seeders}</span>
+            </div>
+            ${playId ? `
+            <button onclick="playWebTorrent(${i})"
+                class="flex-shrink-0 bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1.5 rounded-lg font-semibold transition">
+                ▶ Reproduzir
+            </button>
+            ${r.magnet ? `<a href="${r.magnet}" class="flex-shrink-0 bg-white/10 hover:bg-white/20 text-white text-xs px-3 py-1.5 rounded-lg transition">🧲</a>` : ''}
+            ` : ''}
+        </div>`;
+    }).join('');
+}
+
 async function doTorrentSearch() {
-    const query   = document.getElementById('torrent-search-input').value.trim();
+    const query = document.getElementById('torrent-search-input').value.trim();
     if (!query) return;
 
     const loading = document.getElementById('torrent-loading');
@@ -301,41 +391,14 @@ async function doTorrentSearch() {
     loading.classList.remove('hidden');
     list.innerHTML = '';
     empty.classList.add('hidden');
+    document.getElementById('filter-count').textContent = '';
 
     try {
-        const res     = await fetch(`/torrents/search?query=${encodeURIComponent(query)}&type=${torrentType}`);
-        const results = await res.json();
+        const res = await fetch(`/torrents/search?query=${encodeURIComponent(query)}&type=${torrentType}`);
+        allResults = await res.json();
         loading.classList.add('hidden');
-
-        if (!results.length) { empty.classList.remove('hidden'); return; }
-
-        // Store magnet or .torrent link by index (magnet preferred)
-        window._magnets = {};
-        list.innerHTML = results.map((r, i) => {
-            const playId = r.magnet || r.link;
-            if (playId) window._magnets[i] = playId;
-            const badges = detectLangBadges(r.title);
-            return `
-            <div class="flex items-center gap-3 bg-white/5 hover:bg-white/8 rounded-xl px-4 py-3 border border-white/5 transition">
-                <div class="flex-1 min-w-0">
-                    <p class="text-white text-sm font-medium truncate">${r.title}</p>
-                    <div class="flex items-center gap-2 mt-1 flex-wrap">
-                        <span class="text-gray-500 text-xs">${r.indexer} · ${r.size} · ${r.published || ''}</span>
-                        ${badges.map(b => `<span class="text-xs px-1.5 py-0.5 rounded font-bold ${b.cls}">${b.label}</span>`).join('')}
-                    </div>
-                </div>
-                <div class="flex items-center gap-1 text-green-400 text-xs flex-shrink-0 mr-1">
-                    <span>▲</span><span>${r.seeders}</span>
-                </div>
-                ${playId ? `
-                <button onclick="playWebTorrent(${i})"
-                    class="flex-shrink-0 bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1.5 rounded-lg font-semibold transition">
-                    ▶ Reproduzir
-                </button>
-                ${r.magnet ? `<a href="${r.magnet}" class="flex-shrink-0 bg-white/10 hover:bg-white/20 text-white text-xs px-3 py-1.5 rounded-lg transition">🧲</a>` : ''}
-                ` : ''}
-            </div>`;
-        }).join('');
+        if (!allResults.length) { empty.classList.remove('hidden'); return; }
+        renderResults(allResults);
     } catch(e) {
         loading.classList.add('hidden');
         empty.textContent = 'Erro ao pesquisar. Verifica se o Jackett está activo.';
