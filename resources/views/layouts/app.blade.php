@@ -101,8 +101,8 @@
 
             {{-- Right side --}}
             <div class="flex items-center gap-3">
-                {{-- Language switcher --}}
-                <div class="flex items-center gap-1.5 bg-white/5 rounded-lg px-2 py-1.5 border border-white/10">
+                {{-- Language switcher (hidden on mobile, shown in bottom nav instead) --}}
+                <div class="hidden sm:flex items-center gap-1.5 bg-white/5 rounded-lg px-2 py-1.5 border border-white/10">
                     @foreach(['pt' => 'pt', 'es' => 'es', 'en' => 'gb'] as $lang => $flag)
                         <a href="{{ route('locale.switch', $lang) }}"
                            title="{{ strtoupper($lang) }}"
