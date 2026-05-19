@@ -33,10 +33,16 @@ class JackettService
 
         $results = $response->json()['Results'] ?? [];
 
-        // Se a query contém código de episódio (S01E02), filtra resultados pelo mesmo código
+        // Extrai código de episódio (ex: S01E07) e nome da série (ex: "FROM")
         $episodeFilter = null;
-        if (preg_match('/[Ss](\d{1,2})[Ee](\d{1,3})/', $query, $m)) {
-            $episodeFilter = strtolower($m[0]); // ex: s01e02
+        $showPrefix    = null;
+
+        if (preg_match('/^(.*?)\s*([Ss]\d{1,2}[Ee]\d{1,3})/u', trim($query), $m)) {
+            $episodeFilter = strtolower($m[2]);           // s01e07
+            $showRaw       = trim($m[1]);
+            if ($showRaw !== '') {
+                $showPrefix = $this->normalizeName($showRaw); // "from"
+            }
         }
 
         return collect($results)
@@ -51,13 +57,26 @@ class JackettService
                 'published'  => isset($r['PublishDate']) ? substr($r['PublishDate'], 0, 10) : null,
             ])
             ->filter(fn($r) => $r['magnet'] || $r['link'])
+            // Filtra pelo código do episódio exacto
             ->when($episodeFilter, fn($col) => $col->filter(
                 fn($r) => str_contains(strtolower($r['title']), $episodeFilter)
             ))
+            // Filtra pelo nome da série no início do título
+            ->when($showPrefix, function ($col) use ($showPrefix) {
+                return $col->filter(function ($r) use ($showPrefix) {
+                    $titleNorm = $this->normalizeName($r['title']);
+                    return str_starts_with($titleNorm, $showPrefix);
+                });
+            })
             ->sortByDesc('seeders')
             ->values()
             ->take(30)
             ->toArray();
+    }
+
+    private function normalizeName(string $name): string
+    {
+        return trim(preg_replace('/[^a-z0-9]+/', ' ', strtolower($name)));
     }
 
     private function formatSize(int $bytes): string

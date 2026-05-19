@@ -309,27 +309,31 @@ async function doTorrentSearch() {
 
         if (!results.length) { empty.classList.remove('hidden'); return; }
 
-        // Store magnets by index to avoid HTML escaping issues
+        // Store magnet or .torrent link by index (magnet preferred)
         window._magnets = {};
         list.innerHTML = results.map((r, i) => {
-            if (r.magnet) window._magnets[i] = r.magnet;
+            const playId = r.magnet || r.link;
+            if (playId) window._magnets[i] = playId;
+            const badges = detectLangBadges(r.title);
             return `
             <div class="flex items-center gap-3 bg-white/5 hover:bg-white/8 rounded-xl px-4 py-3 border border-white/5 transition">
                 <div class="flex-1 min-w-0">
                     <p class="text-white text-sm font-medium truncate">${r.title}</p>
-                    <p class="text-gray-500 text-xs mt-0.5">${r.indexer} · ${r.size} · ${r.published || ''}</p>
+                    <div class="flex items-center gap-2 mt-1 flex-wrap">
+                        <span class="text-gray-500 text-xs">${r.indexer} · ${r.size} · ${r.published || ''}</span>
+                        ${badges.map(b => `<span class="text-xs px-1.5 py-0.5 rounded font-bold ${b.cls}">${b.label}</span>`).join('')}
+                    </div>
                 </div>
                 <div class="flex items-center gap-1 text-green-400 text-xs flex-shrink-0 mr-1">
                     <span>▲</span><span>${r.seeders}</span>
                 </div>
-                ${r.magnet ? `
+                ${playId ? `
                 <button onclick="playWebTorrent(${i})"
                     class="flex-shrink-0 bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1.5 rounded-lg font-semibold transition">
                     ▶ Reproduzir
                 </button>
-                <a href="${r.magnet}" class="flex-shrink-0 bg-white/10 hover:bg-white/20 text-white text-xs px-3 py-1.5 rounded-lg transition">
-                    🧲
-                </a>` : ''}
+                ${r.magnet ? `<a href="${r.magnet}" class="flex-shrink-0 bg-white/10 hover:bg-white/20 text-white text-xs px-3 py-1.5 rounded-lg transition">🧲</a>` : ''}
+                ` : ''}
             </div>`;
         }).join('');
     } catch(e) {
@@ -342,6 +346,65 @@ async function doTorrentSearch() {
 document.getElementById('torrent-modal')?.addEventListener('click', function(e) {
     if (e.target === this) closeTorrents();
 });
+
+// ── Language badge detection ──────────────────────────────────────────────────
+function detectLangBadges(title) {
+    const t = title.toUpperCase();
+    const badges = [];
+    if (/\bDUAL(\s*[-–]?\s*AUDIO)?\b/.test(t))
+        badges.push({ label: 'DUAL', cls: 'bg-purple-600/30 text-purple-300 border border-purple-500/30' });
+    else if (/\bMULTI(LINGUAL)?\b/.test(t))
+        badges.push({ label: 'MULTI', cls: 'bg-purple-600/30 text-purple-300 border border-purple-500/30' });
+    else {
+        if (/\b(ESP(A[ÑN]OL)?|SPANISH|ESPANHOL|DUBBED)\b/.test(t))
+            badges.push({ label: 'ES', cls: 'bg-orange-600/30 text-orange-300 border border-orange-500/30' });
+        if (/\b(PT|PTBR|PT[-\s]?BR|PORTUGU[EÊ]S|PORTUGUESE|LEGENDADO)\b/.test(t))
+            badges.push({ label: 'PT', cls: 'bg-green-600/30 text-green-300 border border-green-500/30' });
+        if (/\b(ENG(LISH)?)\b/.test(t))
+            badges.push({ label: 'EN', cls: 'bg-blue-600/30 text-blue-300 border border-blue-500/30' });
+    }
+    return badges;
+}
+
+// ── Subtitle language detection ───────────────────────────────────────────────
+function detectSubLang(filename) {
+    const f = filename.toLowerCase();
+    if (/[\.\-_](pt|pt[\-_]br|ptbr|por|portuguese|portugu)[\.\-_]/.test(f)) return { code: 'pt', label: 'Português' };
+    if (/[\.\-_](es|esp|spa|spanish|espanol)[\.\-_]/.test(f))               return { code: 'es', label: 'Español' };
+    if (/[\.\-_](en|eng|english)[\.\-_]/.test(f))                           return { code: 'en', label: 'English' };
+    if (/[\.\-_](fr|fra|french)[\.\-_]/.test(f))                            return { code: 'fr', label: 'Français' };
+    if (/[\.\-_](de|deu|german)[\.\-_]/.test(f))                            return { code: 'de', label: 'Deutsch' };
+    if (/[\.\-_](it|ita|italian)[\.\-_]/.test(f))                           return { code: 'it', label: 'Italiano' };
+    // Guess from position in filename list
+    if (/pt|por|portug/.test(f))  return { code: 'pt', label: 'Português' };
+    if (/es|esp|span/.test(f))    return { code: 'es', label: 'Español' };
+    return { code: 'und', label: 'Legenda' };
+}
+
+async function loadSubtitles(video, magnet) {
+    // Remove any existing tracks
+    Array.from(video.querySelectorAll('track')).forEach(t => t.remove());
+    try {
+        const res = await fetch(`${STREAM_SERVER}/subtitles?magnet=${encodeURIComponent(magnet)}`);
+        if (!res.ok) return;
+        const subs = await res.json();
+        if (!subs.length) return;
+
+        const status = document.getElementById('wt-status');
+        status.textContent += ` · ${subs.length} legenda(s) encontrada(s)`;
+
+        subs.forEach((sub, i) => {
+            const lang = detectSubLang(sub.name);
+            const track = document.createElement('track');
+            track.kind    = 'subtitles';
+            track.label   = lang.label;
+            track.srclang = lang.code;
+            track.src     = `${STREAM_SERVER}/subtitle?magnet=${encodeURIComponent(magnet)}&name=${encodeURIComponent(sub.name)}`;
+            if (i === 0) track.default = true;
+            video.appendChild(track);
+        });
+    } catch(e) { /* no subtitles, fine */ }
+}
 
 // ── Torrent streaming via servidor local ──────────────────────────────────────
 const STREAM_SERVER = 'http://localhost:9090';
@@ -381,6 +444,9 @@ async function playWebTorrent(idx) {
         progressInterval = null;
         progress.style.width = '90%';
         status.textContent = `A iniciar: ${info.name || '...'} (${info.peers} peers)`;
+
+        // Load subtitles from torrent (if any .srt/.ass files exist)
+        await loadSubtitles(video, magnet);
 
         // Step 2: now the torrent is ready — stream immediately
         const streamUrl = `${STREAM_SERVER}/stream?magnet=${encodeURIComponent(magnet)}`;
