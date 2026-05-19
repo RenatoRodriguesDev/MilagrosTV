@@ -1,0 +1,19 @@
+{
+  "name": "MilagrosTV",
+  "short_name": "MilagrosTV",
+  "description": "O nosso catálogo de filmes e séries",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#E50914",
+  "orientation": "portrait-primary",
+  "categories": ["entertainment"],
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ],
+  "screenshots": [],
+  "shortcuts": [
+    { "name": "Filmes", "url": "/?type=movies", "description": "Ver filmes" },
+    { "name": "Séries", "url": "/?type=series", "description": "Ver séries" }
+  ]
+}
