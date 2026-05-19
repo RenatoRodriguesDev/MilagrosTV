@@ -42,6 +42,11 @@ class CatalogController extends Controller
         return view('catalog.serie', compact('serie', 'episodes'));
     }
 
+    public function movie(Movie $movie)
+    {
+        return view('catalog.movie', compact('movie'));
+    }
+
     public function toggleWatched(Request $request)
     {
         $request->validate([

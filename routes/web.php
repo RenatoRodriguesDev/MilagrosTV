@@ -20,6 +20,7 @@ Route::get('/locale/{lang}', function (string $lang) {
 // Catálogo público
 Route::get('/', [CatalogController::class, 'index'])->name('catalog.index');
 Route::get('/series/{serie}', [CatalogController::class, 'serie'])->name('catalog.serie');
+Route::get('/movies/{movie}', [CatalogController::class, 'movie'])->name('catalog.movie');
 Route::post('/watched', [CatalogController::class, 'toggleWatched'])->name('catalog.watched');
 Route::get('/video/episode/{episode}', [VideoController::class, 'stream'])->name('video.episode');
 Route::get('/torrents/search', [TorrentController::class, 'search'])->name('torrents.search');

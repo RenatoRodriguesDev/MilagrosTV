@@ -3,7 +3,9 @@
 @endphp
 
 <div class="card-item relative cursor-pointer group"
-     @if($type === 'serie') onclick="window.location='{{ route('catalog.serie', $item) }}'" @endif>
+     @if($type === 'serie') onclick="window.location='{{ route('catalog.serie', $item) }}'"
+     @elseif($type === 'movie') onclick="window.location='{{ route('catalog.movie', $item) }}'"
+     @endif>
 
     {{-- Poster --}}
     <div class="relative aspect-[2/3] rounded-xl overflow-hidden bg-gray-900">
@@ -37,7 +39,7 @@
 
         {{-- Hover overlay --}}
         <div class="card-overlay absolute inset-0 opacity-0 group-hover:opacity-100 flex flex-col justify-end p-3">
-            @if($type === 'serie')
+            @if($type === 'serie' || $type === 'movie')
             <div class="flex items-center justify-center mb-2">
                 <div class="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-xl">
                     <span class="text-black text-sm ml-0.5">▶</span>
