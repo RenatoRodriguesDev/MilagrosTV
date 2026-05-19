@@ -25,6 +25,34 @@
         <div class="bg-green-800 text-green-200 px-4 py-2 rounded mb-4 text-sm">{{ session('success') }}</div>
     @endif
 
+    {{-- Importar do TMDB --}}
+    @if($serie->tmdb_id)
+    <div class="bg-gray-800 rounded-lg p-4 mb-4">
+        <h3 class="text-sm font-semibold text-gray-300 mb-3">🎬 Importar episódios do TMDB</h3>
+        <div class="flex gap-2 mb-2">
+            <select id="tmdb-season" class="bg-gray-700 border border-gray-600 rounded px-3 py-2 text-white text-sm focus:outline-none focus:border-purple-500">
+                @for($s = 1; $s <= ($serie->seasons ?? 5); $s++)
+                <option value="{{ $s }}">Temporada {{ $s }}</option>
+                @endfor
+            </select>
+            <button type="button" onclick="importFromTmdb()"
+                class="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded text-sm font-semibold transition">
+                ↓ Importar do TMDB
+            </button>
+        </div>
+        <p class="text-xs text-gray-500">Cria os episódios com os títulos do TMDB (sem vídeo). Liga os ficheiros depois com o scanner.</p>
+        <div id="tmdb-results" class="hidden mt-3">
+            <p id="tmdb-count" class="text-sm text-green-400 mb-2"></p>
+            <div id="tmdb-list" class="space-y-1 max-h-48 overflow-y-auto"></div>
+        </div>
+        <p id="tmdb-error" class="text-red-400 text-sm hidden mt-2"></p>
+    </div>
+    @else
+    <div class="bg-gray-800 rounded-lg p-4 mb-4 text-gray-500 text-sm">
+        ℹ️ Para importar episódios do TMDB, associa primeiro a série a um TMDB ID no formulário acima.
+    </div>
+    @endif
+
     {{-- Scanner automático --}}
     <div class="bg-gray-800 rounded-lg p-4 mb-4">
         <h3 class="text-sm font-semibold text-gray-300 mb-3">📂 Detectar ficheiros automaticamente</h3>
@@ -122,6 +150,9 @@
 <script>
 const scanRoute   = '{{ route('admin.episodes.scan') }}';
 const importRoute = '{{ route('admin.series.episodes.import', $serie) }}';
+@if($serie->tmdb_id)
+const tmdbRoute   = '{{ route('admin.series.episodes.tmdb-season', $serie) }}';
+@endif
 const csrfToken   = document.querySelector('meta[name="csrf-token"]').content;
 
 let detectedEpisodes = [];
@@ -167,6 +198,41 @@ async function scanFolder() {
     });
 
     resEl.classList.remove('hidden');
+}
+
+async function importFromTmdb() {
+    const season = document.getElementById('tmdb-season').value;
+    const errEl  = document.getElementById('tmdb-error');
+    const resEl  = document.getElementById('tmdb-results');
+    errEl.classList.add('hidden');
+    resEl.classList.add('hidden');
+
+    const btn = event.target;
+    btn.disabled    = true;
+    btn.textContent = 'A importar...';
+
+    const res  = await fetch(`${tmdbRoute}?season=${season}`, { credentials: 'same-origin' });
+    const data = await res.json();
+
+    btn.disabled    = false;
+    btn.textContent = '↓ Importar do TMDB';
+
+    if (!res.ok) {
+        errEl.textContent = data.error || 'Erro ao importar do TMDB.';
+        errEl.classList.remove('hidden');
+        return;
+    }
+
+    document.getElementById('tmdb-count').textContent = `✓ ${data.imported} episódio(s) importados da Temporada ${season}`;
+    const list = document.getElementById('tmdb-list');
+    list.innerHTML = data.episodes.map(ep => `
+        <div class="flex items-center gap-3 bg-gray-700 rounded px-3 py-2 text-sm">
+            <span class="text-purple-400 font-bold w-16 flex-shrink-0">E${ep.episode_number}</span>
+            <span class="flex-1 text-gray-300 truncate text-xs">${ep.name || '—'}</span>
+        </div>
+    `).join('');
+    resEl.classList.remove('hidden');
+    setTimeout(() => location.reload(), 1800);
 }
 
 async function importAll() {

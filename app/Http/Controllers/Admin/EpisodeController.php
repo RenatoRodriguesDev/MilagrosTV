@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Episode;
 use App\Models\Serie;
+use App\Services\TmdbService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
 
@@ -82,6 +83,32 @@ class EpisodeController extends Controller
         usort($detected, fn($a, $b) => [$a['season'], $a['episode']] <=> [$b['season'], $b['episode']]);
 
         return response()->json($detected);
+    }
+
+    public function importFromTmdb(Request $request, Serie $serie)
+    {
+        $request->validate(['season' => 'required|integer|min:1']);
+
+        if (!$serie->tmdb_id) {
+            return response()->json(['error' => 'A série não tem TMDB ID configurado.'], 422);
+        }
+
+        $tmdb     = app(TmdbService::class);
+        $episodes = $tmdb->getSeasonEpisodes((int) $serie->tmdb_id, $request->input('season'));
+
+        if (empty($episodes)) {
+            return response()->json(['error' => 'Nenhum episódio encontrado no TMDB para esta temporada.'], 404);
+        }
+
+        $season = (int) $request->input('season');
+        foreach ($episodes as $ep) {
+            Episode::updateOrCreate(
+                ['serie_id' => $serie->id, 'season' => $season, 'episode' => $ep['episode_number']],
+                ['title' => $ep['name'] ?? null]
+            );
+        }
+
+        return response()->json(['imported' => count($episodes), 'episodes' => $episodes]);
     }
 
     public function destroy(Episode $episode)

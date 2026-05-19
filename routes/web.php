@@ -60,6 +60,7 @@ Route::prefix('admin')->name('admin.')->middleware(\App\Http\Middleware\AdminAut
     // Episódios
     Route::post('/series/{serie}/episodes', [EpisodeController::class, 'store'])->name('series.episodes.store');
     Route::post('/series/{serie}/episodes/import', [EpisodeController::class, 'importBatch'])->name('series.episodes.import');
+    Route::get('/series/{serie}/episodes/tmdb-season', [EpisodeController::class, 'importFromTmdb'])->name('series.episodes.tmdb-season');
     Route::get('/episodes/scan', [EpisodeController::class, 'scan'])->name('episodes.scan');
     Route::delete('/episodes/{episode}', [EpisodeController::class, 'destroy'])->name('episodes.destroy');
 });

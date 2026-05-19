@@ -132,6 +132,12 @@ class TmdbService
         return $response->successful() ? $response->json() : [];
     }
 
+    public function getSeasonEpisodes(int $tmdbId, int $season): array
+    {
+        $data = $this->get("/tv/{$tmdbId}/season/{$season}");
+        return $data['episodes'] ?? [];
+    }
+
     public function posterUrl(?string $path): ?string
     {
         return $path ? $this->imageBase . $path : null;
