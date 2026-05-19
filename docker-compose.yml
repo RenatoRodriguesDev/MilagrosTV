@@ -22,6 +22,14 @@ services:
       - jackett_data:/config
     restart: unless-stopped
 
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    ports:
+      - "8191:8191"
+    environment:
+      - LOG_LEVEL=info
+    restart: unless-stopped
+
   stream:
     build: ./stream-server
     ports:
