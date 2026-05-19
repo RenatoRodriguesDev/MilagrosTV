@@ -470,7 +470,7 @@ async function loadSubtitles(video, magnet) {
 }
 
 // ── Torrent streaming via servidor local ──────────────────────────────────────
-const STREAM_SERVER = 'http://localhost:9090';
+const STREAM_SERVER = '{{ env("STREAM_SERVER_URL", "/torrent-stream") }}';
 let progressInterval = null;
 
 async function playWebTorrent(idx) {

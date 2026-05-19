@@ -291,7 +291,7 @@ document.getElementById('torrent-modal')?.addEventListener('click', function(e) 
 });
 
 // ── Torrent streaming ─────────────────────────────────────────────────────────
-const STREAM_SERVER = 'http://localhost:9090';
+const STREAM_SERVER = '{{ env("STREAM_SERVER_URL", "/torrent-stream") }}';
 let progressInterval = null;
 
 async function playWebTorrent(idx) {
