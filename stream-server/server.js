@@ -25,8 +25,37 @@ const MIME = {
 
 const VIDEO_EXT = Object.keys(MIME);
 
-const urlToHash  = new Map(); // .torrent URL → infoHash
-const inFlight   = new Map(); // magnetOrUrl  → Promise<torrent>
+const urlToHash    = new Map(); // .torrent URL → infoHash
+const inFlight     = new Map(); // magnetOrUrl  → Promise<torrent>
+const lastAccessed = new Map(); // infoHash     → Date.now()
+
+const MAX_IDLE_MS  = 2 * 60 * 60 * 1000; // 2 horas sem acesso → apagar
+const MAX_TORRENTS = 3;                   // máximo de torrents em simultâneo
+
+function evictOldTorrents() {
+    const now = Date.now();
+    for (const torrent of [...client.torrents]) {
+        const idle = now - (lastAccessed.get(torrent.infoHash) ?? 0);
+        if (idle > MAX_IDLE_MS) {
+            console.log(`Evicting idle torrent: ${torrent.name}`);
+            torrent.destroy({ destroyStore: true });
+            lastAccessed.delete(torrent.infoHash);
+        }
+    }
+    // Se ainda acima do limite, apagar o mais antigo
+    if (client.torrents.length > MAX_TORRENTS) {
+        const oldest = [...client.torrents].sort(
+            (a, b) => (lastAccessed.get(a.infoHash) ?? 0) - (lastAccessed.get(b.infoHash) ?? 0)
+        )[0];
+        if (oldest) {
+            console.log(`Evicting oldest torrent (limit): ${oldest.name}`);
+            oldest.destroy({ destroyStore: true });
+            lastAccessed.delete(oldest.infoHash);
+        }
+    }
+}
+
+setInterval(evictOldTorrents, 15 * 60 * 1000); // verificar a cada 15 minutos
 
 function findExisting(magnetOrUrl) {
     if (magnetOrUrl.startsWith('magnet:')) {
@@ -66,7 +95,7 @@ async function addNew(magnetOrUrl) {
 
         let torrent;
         try {
-            torrent = client.add(torrentId, { path: '/tmp/torrents', destroyStoreOnDestroy: false });
+            torrent = client.add(torrentId, { path: '/tmp/torrents', destroyStoreOnDestroy: true });
         } catch(e) {
             clearTimeout(timeout);
             // Race condition: added by another concurrent request
@@ -101,12 +130,17 @@ async function getOrAdd(magnetOrUrl) {
 
     // Already in client and ready
     const existing = findExisting(magnetOrUrl);
-    if (existing) return waitForReady(existing);
+    if (existing) {
+        lastAccessed.set(existing.infoHash, Date.now());
+        return waitForReady(existing);
+    }
 
     // Start and cache the promise
     const promise = addNew(magnetOrUrl);
     inFlight.set(magnetOrUrl, promise);
-    promise.finally(() => inFlight.delete(magnetOrUrl));
+    promise
+        .then(t => lastAccessed.set(t.infoHash, Date.now()))
+        .finally(() => inFlight.delete(magnetOrUrl));
     return promise;
 }
 
@@ -120,6 +154,7 @@ app.get('/stream', async (req, res) => {
     try {
         const torrent = await getOrAdd(decodeURIComponent(magnet));
         if (disconnected) return;
+        lastAccessed.set(torrent.infoHash, Date.now());
 
         const file = torrent.files.find(f => VIDEO_EXT.includes(extname(f.name).toLowerCase()));
         if (!file) return res.status(404).json({ error: 'No video file found in torrent' });
