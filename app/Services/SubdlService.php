@@ -15,30 +15,22 @@ class SubdlService
         $this->apiKey = config('services.subdl.key', '');
     }
 
-    // Subdl language codes differ from standard — PT-BR is BR_PT in Subdl
-    private function toSubdlLangs(string $langs): string
-    {
-        $map = ['PT' => 'PT,BR_PT', 'ES' => 'ES', 'EN' => 'EN'];
-        return collect(explode(',', $langs))
-            ->flatMap(fn($l) => explode(',', $map[trim($l)] ?? $l))
-            ->unique()->implode(',');
-    }
-
     public function search(
         string $query,
-        string $languages = 'PT,BR_PT,EN',
         ?string $type = null,
         ?int $season = null,
         ?int $episode = null
     ): array {
+        // Don't filter by language in API — Subdl codes are inconsistent.
+        // Language filtering is done client-side via the lang buttons.
         $params = [
             'api_key'   => $this->apiKey,
             'film_name' => $query,
-            'languages' => $this->toSubdlLangs($languages),
         ];
 
-        if ($type)   $params['type']          = $type;
-        if ($season) $params['season_number'] = $season;
+        if ($type)    $params['type']           = $type;
+        if ($season)  $params['season_number']  = $season;
+        if ($episode) $params['episode_number'] = $episode;
 
         $response = Http::timeout(10)->get("{$this->baseUrl}/subtitles", $params);
 
@@ -47,23 +39,37 @@ class SubdlService
         $subs = $response->json()['subtitles'] ?? [];
 
         return collect($subs)
-            ->when($season, fn($col) => $col->filter(
-                fn($s) => empty($s['season']) || $s['season'] == $season
-            ))
+            ->when($season, function ($col) use ($season) {
+                return $col->filter(function ($s) use ($season) {
+                    // Check season field if present
+                    if (!empty($s['season']) && (int)$s['season'] !== $season) return false;
+                    // Also verify via release name (Subdl API sometimes returns wrong season)
+                    $name = $s['release_name'] ?? $s['name'] ?? '';
+                    if (preg_match('/\bS(\d{1,2})E\d/i', $name, $m)) {
+                        if ((int)$m[1] !== $season) return false;
+                    }
+                    return true;
+                });
+            })
             ->when($episode, fn($col) => $col->filter(function ($s) use ($episode) {
-                if (empty($s['season'])) return true;
                 $from = $s['episode_from'] ?? $s['episode'] ?? null;
-                $end  = $s['episode_end']  ?? $s['episode'] ?? null;
-                return !$from || ($episode >= $from && $episode <= ($end ?? $from));
+                $end  = $s['episode_end']  ?? null;
+                if (!$from) return false; // sem episódio definido → exclui
+                $from = (int) $from;
+                $end  = $end !== null ? (int) $end : $from;
+                // Só aceita se for exatamente este episódio (não packs multi-episódio)
+                return $from === $episode && $end === $episode;
             }))
             ->map(fn($s) => [
-                'name'     => $s['release_name'] ?? $s['name'] ?? 'Legenda',
-                'lang'     => $s['lang'] ?? $s['language'] ?? '',
-                'lang_code'=> strtolower($s['language'] ?? $s['lang_code'] ?? ''),
-                'url'      => $s['url'] ?? '',
-                'hi'       => $s['hi'] ?? false,
-                'season'   => $s['season'] ?? null,
-                'episode'  => $s['episode'] ?? null,
+                'name'         => $s['release_name'] ?? $s['name'] ?? 'Legenda',
+                'lang'         => $s['lang'] ?? $s['language'] ?? '',
+                'lang_code'    => strtolower($s['language'] ?? $s['lang_code'] ?? ''),
+                'url'          => $s['url'] ?? '',
+                'hi'           => $s['hi'] ?? false,
+                'season'       => $s['season'] ?? null,
+                'episode'      => $s['episode'] ?? null,
+                'episode_from' => $s['episode_from'] ?? null,
+                'episode_end'  => $s['episode_end'] ?? null,
             ])->values()->toArray();
     }
 
@@ -93,6 +99,12 @@ class SubdlService
 
         if (!$srtContent) {
             throw new \Exception('Nenhum ficheiro .srt encontrado na legenda.');
+        }
+
+        // Detect and convert encoding to UTF-8 (SRT files are often ISO-8859-1/Windows-1252)
+        $encoding = mb_detect_encoding($srtContent, ['UTF-8', 'Windows-1252', 'ISO-8859-1', 'ISO-8859-15'], true);
+        if ($encoding && $encoding !== 'UTF-8') {
+            $srtContent = mb_convert_encoding($srtContent, 'UTF-8', $encoding);
         }
 
         // SRT → WebVTT
