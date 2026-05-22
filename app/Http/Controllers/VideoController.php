@@ -14,77 +14,69 @@ class VideoController extends Controller
 
         $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
 
-        // Transcode via FFmpeg when browser doesn't support the format
-        // Safari/iOS doesn't support MKV or AC3 audio
-        if ($this->needsTranscode($ext)) {
+        if ($this->needsTranscode($ext, $path)) {
             return $this->streamTranscoded($path);
         }
 
         return $this->streamDirect($path, $ext);
     }
 
-    private function needsTranscode(string $ext): bool
+    private function needsTranscode(string $ext, string $path): bool
     {
-        // MKV and AVI are never natively supported by Safari
+        // MKV/AVI are never supported by Safari
         if (in_array($ext, ['mkv', 'avi'])) return true;
 
-        // For MP4, check if User-Agent is Safari/iOS (might have AC3)
-        $ua = request()->header('User-Agent', '');
-        $isSafari = str_contains($ua, 'Safari') && !str_contains($ua, 'Chrome');
-        return $isSafari && $ext === 'mp4';
+        // For MP4, only transcode if audio codec is not browser-compatible
+        if ($ext === 'mp4') {
+            return $this->hasIncompatibleAudio($path);
+        }
+
+        return false;
+    }
+
+    private function hasIncompatibleAudio(string $path): bool
+    {
+        $codec = trim((string) shell_exec(
+            'ffprobe -v quiet -select_streams a:0 -show_entries stream=codec_name -of csv=p=0 '
+            . escapeshellarg($path) . ' 2>/dev/null'
+        ));
+
+        // AC3, EAC3, DTS, TrueHD are not supported by Safari/iOS
+        return in_array(strtolower($codec), ['ac3', 'eac3', 'dts', 'truehd', 'mlp']);
     }
 
     private function streamTranscoded(string $path): StreamedResponse
     {
-        // Copy video as-is, convert audio to AAC — very fast, no re-encoding
-        $cmd = [
-            'ffmpeg', '-hide_banner', '-loglevel', 'error',
-            '-i', $path,
-            '-c:v', 'copy',
-            '-c:a', 'aac',
-            '-ac', '2',          // stereo (some AC3 5.1 tracks need downmix)
-            '-f', 'mp4',
-            '-movflags', 'frag_keyframe+empty_moov+faststart',
-            'pipe:1',
-        ];
-
-        // Handle seek via Range — FFmpeg -ss flag
-        $start = 0;
-        if (request()->hasHeader('Range')) {
-            preg_match('/bytes=(\d+)-/', request()->header('Range'), $m);
-            // Convert byte offset to approximate seconds (rough estimate at 1Mbps avg)
-            // FFmpeg will seek to the right place
-            $start = (int) ($m[1] / 125000); // bytes → seconds at ~1Mbps
-            if ($start > 0) {
-                array_splice($cmd, 1, 0, ['-ss', (string) $start]);
-            }
-        }
+        $cmd = 'ffmpeg -hide_banner -loglevel error'
+            . ' -i ' . escapeshellarg($path)
+            . ' -c:v copy'
+            . ' -c:a aac -ac 2 -b:a 192k'
+            . ' -f mp4 -movflags frag_keyframe+empty_moov'
+            . ' pipe:1 2>/dev/null';
 
         return response()->stream(function () use ($cmd) {
-            $proc = proc_open($cmd, [1 => ['pipe', 'w'], 2 => ['pipe', 'w']], $pipes);
-            if (!$proc) return;
-            fclose($pipes[2]);
-            while (!feof($pipes[1])) {
-                echo fread($pipes[1], 65536);
+            $handle = popen($cmd, 'r');
+            if (!$handle) return;
+            while (!feof($handle)) {
+                echo fread($handle, 65536);
                 flush();
             }
-            fclose($pipes[1]);
-            proc_close($proc);
+            pclose($handle);
         }, 200, [
-            'Content-Type'  => 'video/mp4',
-            'Accept-Ranges' => 'none',
-            'Cache-Control' => 'no-cache',
+            'Content-Type'      => 'video/mp4',
+            'Accept-Ranges'     => 'none',
+            'Cache-Control'     => 'no-cache',
             'X-Accel-Buffering' => 'no',
         ]);
     }
 
     private function streamDirect(string $path, string $ext): StreamedResponse
     {
-        $size   = filesize($path);
-        $mime   = $this->mimeType($ext);
-        $start  = 0;
-        $end    = $size - 1;
-        $status = 200;
+        $size    = filesize($path);
+        $mime    = $this->mimeType($ext);
+        $start   = 0;
+        $end     = $size - 1;
+        $status  = 200;
         $headers = [
             'Content-Type'   => $mime,
             'Accept-Ranges'  => 'bytes',
@@ -120,11 +112,11 @@ class VideoController extends Controller
     private function mimeType(string $ext): string
     {
         return match ($ext) {
-            'mp4'  => 'video/mp4',
-            'mkv'  => 'video/x-matroska',
-            'webm' => 'video/webm',
-            'avi'  => 'video/x-msvideo',
-            'mov'  => 'video/quicktime',
+            'mp4'   => 'video/mp4',
+            'mkv'   => 'video/x-matroska',
+            'webm'  => 'video/webm',
+            'avi'   => 'video/x-msvideo',
+            'mov'   => 'video/quicktime',
             default => 'application/octet-stream',
         };
     }
