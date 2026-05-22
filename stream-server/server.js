@@ -306,6 +306,18 @@ app.get('/subtitle', async (req, res) => {
     }
 });
 
+app.get('/stop', (req, res) => {
+    const { magnet } = req.query;
+    if (!magnet) return res.status(400).json({ error: 'magnet required' });
+    const torrent = findExisting(decodeURIComponent(magnet));
+    if (torrent) {
+        console.log(`Stopping and removing: ${torrent.name}`);
+        torrent.destroy({ destroyStore: true });
+        lastAccessed.delete(torrent.infoHash);
+    }
+    res.json({ ok: true });
+});
+
 app.get('/health', (_, res) => res.json({ ok: true, torrents: client.torrents.length }));
 
 app.listen(9090, () => console.log('Stream server on :9090'));

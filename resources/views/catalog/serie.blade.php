@@ -572,6 +572,7 @@ async function getSubtitleTracks(magnet) {
 const STREAM_SERVER = '{{ env("STREAM_SERVER_URL", "/torrent-stream") }}';
 let progressInterval = null;
 let currentStreamUrl = null;
+let currentMagnet    = null;
 
 async function playWebTorrent(idx) {
     const magnet = window._magnets[idx];
@@ -614,6 +615,7 @@ async function playWebTorrent(idx) {
         // Step 2: now the torrent is ready — stream immediately
         const streamUrl = `${STREAM_SERVER}/stream?magnet=${encodeURIComponent(magnet)}`;
         currentStreamUrl = streamUrl;
+        currentMagnet    = magnet;
         const player = getTorrentPlyr();
 
         player.source = {
@@ -648,6 +650,10 @@ function stopWebTorrent() {
     document.getElementById('sub-offset-bar').classList.add('hidden');
     document.getElementById('sub-offset-bar').classList.remove('flex');
     document.getElementById('wt-player-box')?.classList.add('hidden');
+    if (currentMagnet) {
+        fetch(`${STREAM_SERVER}/stop?magnet=${encodeURIComponent(currentMagnet)}`, { keepalive: true }).catch(() => {});
+        currentMagnet = null;
+    }
 }
 
 function closeTorrents() {

@@ -356,6 +356,7 @@ document.getElementById('torrent-modal')?.addEventListener('click', function(e) 
 const STREAM_SERVER = '{{ env("STREAM_SERVER_URL", "/torrent-stream") }}';
 let progressInterval = null;
 let currentStreamUrl = null;
+let currentMagnet    = null;
 
 async function playWebTorrent(idx) {
     const magnet = window._magnets[idx];
@@ -380,6 +381,7 @@ async function playWebTorrent(idx) {
         progress.style.width = '90%';
         status.textContent = `A iniciar: ${info.name || '...'} (${info.peers} peers)`;
         currentStreamUrl = `${STREAM_SERVER}/stream?magnet=${encodeURIComponent(magnet)}`;
+        currentMagnet    = magnet;
         const player = getTorrentPlyr();
         player.source = { type: 'video', sources: [{ src: currentStreamUrl, type: 'video/mp4' }] };
         player.once('ready', () => { player.play().catch(() => {}); status.textContent = '▶ A reproduzir via torrent stream'; progress.style.width = '100%'; });
@@ -399,6 +401,10 @@ function stopWebTorrent() {
     document.getElementById('sub-offset-bar').classList.add('hidden');
     document.getElementById('sub-offset-bar').classList.remove('flex');
     document.getElementById('wt-player-box')?.classList.add('hidden');
+    if (currentMagnet) {
+        fetch(`${STREAM_SERVER}/stop?magnet=${encodeURIComponent(currentMagnet)}`, { keepalive: true }).catch(() => {});
+        currentMagnet = null;
+    }
 }
 
 function closeTorrents() {
