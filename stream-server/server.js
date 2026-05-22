@@ -174,14 +174,20 @@ app.get('/stream', async (req, res) => {
         const mime  = MIME[ext] || 'application/octet-stream';
 
         if (needsTranscode(file.name)) {
-            // Transcode to H.264+AAC MP4 for browser compatibility (HEVC/MKV/AVI)
-            console.log(`Transcoding: ${file.name}`);
+            // Remux to MP4 container — copy video stream (fast), re-encode audio to AAC
+            // If client requests full transcode (?transcode=1), encode video to H.264 (for HEVC on PC)
+            const fullTranscode = req.query.transcode === '1';
+            const videoCodec = fullTranscode
+                ? ['-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28']
+                : ['-c:v', 'copy'];
+
+            console.log(`${fullTranscode ? 'Transcoding' : 'Remuxing'}: ${file.name}`);
             res.writeHead(200, { 'Content-Type': 'video/mp4' });
 
             const ff = spawn('ffmpeg', [
                 '-fflags', 'nobuffer',
                 '-i', 'pipe:0',
-                '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23',
+                ...videoCodec,
                 '-c:a', 'aac', '-b:a', '128k', '-ac', '2',
                 '-f', 'mp4', '-movflags', 'frag_keyframe+empty_moov',
                 'pipe:1'
@@ -190,7 +196,7 @@ app.get('/stream', async (req, res) => {
             const src = file.createReadStream();
             src.pipe(ff.stdin);
             ff.stdout.pipe(res);
-            ff.stderr.on('data', () => {}); // suppress ffmpeg logs
+            ff.stderr.on('data', () => {});
 
             req.on('close', () => { ff.kill('SIGKILL'); src.destroy(); });
             ff.on('error', err => { console.error('FFmpeg error:', err.message); res.end(); });
@@ -248,10 +254,12 @@ app.get('/preload', async (req, res) => {
         const torrent = await getOrAdd(decodeURIComponent(magnet));
         const file = torrent.files.find(f => VIDEO_EXT.includes(extname(f.name).toLowerCase()));
         res.json({
-            ok:    true,
-            name:  file?.name || torrent.name,
-            size:  file?.length || 0,
-            peers: torrent.numPeers,
+            ok:           true,
+            name:         torrent.name,
+            file:         file?.name || torrent.name,
+            size:         file?.length || 0,
+            peers:        torrent.numPeers,
+            needsRemux:   file ? needsTranscode(file.name) : false,
         });
     } catch (err) {
         res.status(503).json({ error: err.message });

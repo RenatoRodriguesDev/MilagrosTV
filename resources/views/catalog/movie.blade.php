@@ -386,6 +386,12 @@ let progressInterval = null;
 let currentStreamUrl = null;
 let currentMagnet    = null;
 
+function browserSupportsHEVC() {
+    const v = document.createElement('video');
+    return v.canPlayType('video/mp4; codecs="hev1.1.6.L93.B0"') !== ''
+        || v.canPlayType('video/mp4; codecs="hvc1"') !== '';
+}
+
 async function playWebTorrent(idx) {
     const magnet = window._magnets[idx];
     if (!magnet) return;
@@ -408,7 +414,9 @@ async function playWebTorrent(idx) {
         clearInterval(progressInterval); progressInterval = null;
         progress.style.width = '90%';
         status.textContent = `A iniciar: ${info.name || '...'} (${info.peers} peers)`;
-        currentStreamUrl = `${STREAM_SERVER}/stream?magnet=${encodeURIComponent(magnet)}`;
+        const hevcFile = info.needsRemux && /\b(HEVC|X265|H\.?265|HEVC10)\b/i.test(info.file || '');
+        const needsEncode = hevcFile && !browserSupportsHEVC();
+        currentStreamUrl = `${STREAM_SERVER}/stream?magnet=${encodeURIComponent(magnet)}${needsEncode ? '&transcode=1' : ''}`;
         currentMagnet    = magnet;
         const player = getTorrentPlyr();
         player.source = { type: 'video', sources: [{ src: currentStreamUrl, type: 'video/mp4' }] };

@@ -608,6 +608,12 @@ let progressInterval = null;
 let currentStreamUrl = null;
 let currentMagnet    = null;
 
+function browserSupportsHEVC() {
+    const v = document.createElement('video');
+    return v.canPlayType('video/mp4; codecs="hev1.1.6.L93.B0"') !== ''
+        || v.canPlayType('video/mp4; codecs="hvc1"') !== '';
+}
+
 async function playWebTorrent(idx) {
     const magnet = window._magnets[idx];
     if (!magnet) return;
@@ -646,8 +652,10 @@ async function playWebTorrent(idx) {
         // Load subtitles from torrent (if any .srt/.ass files exist)
         const tracks = await getSubtitleTracks(magnet);
 
-        // Step 2: now the torrent is ready — stream immediately
-        const streamUrl = `${STREAM_SERVER}/stream?magnet=${encodeURIComponent(magnet)}`;
+        // Step 2: build stream URL — add ?transcode=1 for HEVC on browsers that need it
+        const hevcFile = info.needsRemux && /\b(HEVC|X265|H\.?265|HEVC10)\b/i.test(info.file || '');
+        const needsEncode = hevcFile && !browserSupportsHEVC();
+        const streamUrl = `${STREAM_SERVER}/stream?magnet=${encodeURIComponent(magnet)}${needsEncode ? '&transcode=1' : ''}`;
         currentStreamUrl = streamUrl;
         currentMagnet    = magnet;
         const player = getTorrentPlyr();
