@@ -2,6 +2,16 @@ import express from 'express';
 import cors    from 'cors';
 import WebTorrent from 'webtorrent';
 import { extname } from 'path';
+import { spawn } from 'child_process';
+
+const TRANSCODE_EXT = new Set(['.mkv', '.avi', '.mov', '.ts']);
+
+function needsTranscode(filename) {
+    const ext = extname(filename).toLowerCase();
+    if (TRANSCODE_EXT.has(ext)) return true;
+    const name = filename.toUpperCase();
+    return /\b(HEVC|X265|H\.?265|HEVC10)\b/.test(name);
+}
 
 // Catch anything that escapes normal try/catch
 process.on('uncaughtException',      err => console.error('uncaughtException:', err));
@@ -162,34 +172,50 @@ app.get('/stream', async (req, res) => {
         const total = file.length;
         const ext   = extname(file.name).toLowerCase();
         const mime  = MIME[ext] || 'application/octet-stream';
-        const range = req.headers.range;
 
-        if (range) {
-            const [rawStart, rawEnd] = range.replace(/bytes=/, '').split('-');
-            const start  = parseInt(rawStart, 10) || 0;
-            const end    = rawEnd ? parseInt(rawEnd, 10) : Math.min(start + 1024 * 1024 * 4, total - 1);
-            const length = end - start + 1;
+        if (needsTranscode(file.name)) {
+            // Transcode to H.264+AAC MP4 for browser compatibility (HEVC/MKV/AVI)
+            console.log(`Transcoding: ${file.name}`);
+            res.writeHead(200, { 'Content-Type': 'video/mp4' });
 
-            res.writeHead(206, {
-                'Content-Range':  `bytes ${start}-${end}/${total}`,
-                'Accept-Ranges':  'bytes',
-                'Content-Length': length,
-                'Content-Type':   mime,
-            });
+            const ff = spawn('ffmpeg', [
+                '-fflags', 'nobuffer',
+                '-i', 'pipe:0',
+                '-c:v', 'libx264', '-preset', 'veryfast', '-crf', '23',
+                '-c:a', 'aac', '-b:a', '128k', '-ac', '2',
+                '-f', 'mp4', '-movflags', 'frag_keyframe+empty_moov',
+                'pipe:1'
+            ], { stdio: ['pipe', 'pipe', 'pipe'] });
 
-            const stream = file.createReadStream({ start, end });
-            stream.on('error', err => { console.error('Read stream error:', err.message); res.end(); });
-            stream.pipe(res);
+            const src = file.createReadStream();
+            src.pipe(ff.stdin);
+            ff.stdout.pipe(res);
+            ff.stderr.on('data', () => {}); // suppress ffmpeg logs
+
+            req.on('close', () => { ff.kill('SIGKILL'); src.destroy(); });
+            ff.on('error', err => { console.error('FFmpeg error:', err.message); res.end(); });
         } else {
-            res.writeHead(200, {
-                'Content-Length': total,
-                'Content-Type':   mime,
-                'Accept-Ranges':  'bytes',
-            });
-
-            const stream = file.createReadStream();
-            stream.on('error', err => { console.error('Read stream error:', err.message); res.end(); });
-            stream.pipe(res);
+            const range = req.headers.range;
+            if (range) {
+                const [rawStart, rawEnd] = range.replace(/bytes=/, '').split('-');
+                const start  = parseInt(rawStart, 10) || 0;
+                const end    = rawEnd ? parseInt(rawEnd, 10) : Math.min(start + 1024 * 1024 * 4, total - 1);
+                const length = end - start + 1;
+                res.writeHead(206, {
+                    'Content-Range':  `bytes ${start}-${end}/${total}`,
+                    'Accept-Ranges':  'bytes',
+                    'Content-Length': length,
+                    'Content-Type':   mime,
+                });
+                const stream = file.createReadStream({ start, end });
+                stream.on('error', err => { console.error('Read stream error:', err.message); res.end(); });
+                stream.pipe(res);
+            } else {
+                res.writeHead(200, { 'Content-Length': total, 'Content-Type': mime, 'Accept-Ranges': 'bytes' });
+                const stream = file.createReadStream();
+                stream.on('error', err => { console.error('Read stream error:', err.message); res.end(); });
+                stream.pipe(res);
+            }
         }
     } catch (err) {
         console.error('Stream error:', err.message);
