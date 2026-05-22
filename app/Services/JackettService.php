@@ -23,7 +23,7 @@ class JackettService
             default  => [2000, 5000],
         };
 
-        $response = Http::timeout(20)->get("{$this->baseUrl}/api/v2.0/indexers/all/results", [
+        $response = Http::timeout(120)->get("{$this->baseUrl}/api/v2.0/indexers/all/results", [
             'apikey'     => $this->apiKey,
             'Query'      => $query,
             'Category'   => $categories,

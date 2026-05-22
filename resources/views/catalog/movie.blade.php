@@ -127,14 +127,34 @@
             {{-- WebTorrent player inline --}}
             <div id="wt-player-box" class="hidden mb-3">
                 <div class="bg-black rounded-xl overflow-hidden">
-                    <video id="wt-video" controls class="w-full" style="max-height:300px;"></video>
+                    <video id="wt-video" controls playsinline class="w-full" style="max-height:300px;"></video>
                 </div>
                 <div class="flex items-center justify-between mt-2 text-xs px-1">
                     <span id="wt-status" class="text-gray-400">A carregar...</span>
-                    <button onclick="stopWebTorrent()" class="text-gray-600 hover:text-red-400 transition">✕ Parar</button>
+                    <div class="flex items-center gap-3">
+                        <button onclick="toggleSubSearch()" class="text-gray-500 hover:text-blue-400 transition">🔤 Legendas</button>
+                        <button onclick="stopWebTorrent()" class="text-gray-600 hover:text-red-400 transition">✕ Parar</button>
+                    </div>
                 </div>
                 <div class="w-full bg-white/5 rounded-full h-1 mt-1">
                     <div id="wt-progress" class="bg-red-500 h-1 rounded-full transition-all" style="width:0%"></div>
+                </div>
+                <div id="sub-search-panel" class="hidden mt-3 bg-white/5 rounded-xl p-3">
+                    <div class="flex gap-2 mb-2">
+                        <input type="text" id="sub-query" placeholder="Título do filme..."
+                            class="flex-1 bg-white/5 border border-white/10 text-white rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-blue-500">
+                        <select id="sub-lang" class="bg-white/5 border border-white/10 text-white rounded-lg px-2 py-1.5 text-xs">
+                            <option value="PT">🇵🇹 PT</option>
+                            <option value="ES">🇪🇸 ES</option>
+                            <option value="EN">🇬🇧 EN</option>
+                            <option value="PT,ES,EN">Todos</option>
+                        </select>
+                        <button onclick="searchSubtitles()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition">
+                            Pesquisar
+                        </button>
+                    </div>
+                    <div id="sub-results" class="space-y-1 max-h-40 overflow-y-auto"></div>
+                    <p id="sub-status" class="text-xs text-gray-500 mt-1"></p>
                 </div>
             </div>
             <div id="torrent-list" class="space-y-2"></div>
@@ -345,5 +365,70 @@ function closeTorrents() {
 document.getElementById('torrent-search-input')?.addEventListener('keydown', e => {
     if (e.key === 'Enter') doTorrentSearch();
 });
+
+document.getElementById('sub-query')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') searchSubtitles();
+});
+
+// ── Subtitle search (Subdl) ───────────────────────────────────────────────────
+const LANG_LABELS = { pt: '🇵🇹 PT', es: '🇪🇸 ES', en: '🇬🇧 EN' };
+
+function toggleSubSearch() {
+    const panel = document.getElementById('sub-search-panel');
+    panel.classList.toggle('hidden');
+    if (!panel.classList.contains('hidden')) {
+        const q = document.getElementById('torrent-search-input')?.value || '{{ addslashes($movie->localTitle()) }}';
+        document.getElementById('sub-query').value = q;
+        document.getElementById('sub-query').focus();
+    }
+}
+
+async function searchSubtitles() {
+    const query  = document.getElementById('sub-query').value.trim();
+    const lang   = document.getElementById('sub-lang').value;
+    const status = document.getElementById('sub-status');
+    const list   = document.getElementById('sub-results');
+    if (!query) return;
+    status.textContent = 'A pesquisar...';
+    list.innerHTML = '';
+    try {
+        const res  = await fetch(`/subtitles/search?query=${encodeURIComponent(query)}&lang=${encodeURIComponent(lang)}&type=movie`);
+        const subs = await res.json();
+        if (!subs.length) { status.textContent = 'Sem resultados.'; return; }
+        status.textContent = `${subs.length} legenda(s) encontrada(s)`;
+        list.innerHTML = subs.slice(0, 20).map(s => {
+            const langLabel = LANG_LABELS[s.lang_code] || s.lang || '?';
+            return `
+            <div class="flex items-center gap-2 bg-white/5 rounded-lg px-3 py-2 text-xs">
+                <span class="flex-shrink-0">${langLabel}</span>
+                <span class="flex-1 text-gray-300 truncate">${s.name}</span>
+                <button onclick="loadExternalSubtitle('${encodeURIComponent(s.url)}')"
+                    class="flex-shrink-0 bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded font-semibold transition">
+                    ✓ Usar
+                </button>
+            </div>`;
+        }).join('');
+    } catch(e) { status.textContent = 'Erro ao pesquisar legendas.'; }
+}
+
+async function loadExternalSubtitle(encodedUrl) {
+    const status = document.getElementById('sub-status');
+    status.textContent = 'A descarregar legenda...';
+    try {
+        const url    = decodeURIComponent(encodedUrl);
+        const vttUrl = `/subtitles/download?url=${encodeURIComponent(url)}`;
+        const video  = document.getElementById('wt-video');
+        Array.from(video.querySelectorAll('track[data-external]')).forEach(t => t.remove());
+        const track = document.createElement('track');
+        track.kind = 'subtitles'; track.src = vttUrl;
+        track.label = document.getElementById('sub-lang').value;
+        track.srclang = document.getElementById('sub-lang').value.toLowerCase().split(',')[0];
+        track.default = true; track.dataset.external = '1';
+        video.appendChild(track);
+        if (video.textTracks.length > 0) video.textTracks[video.textTracks.length - 1].mode = 'showing';
+        status.textContent = '✓ Legenda carregada!';
+        setTimeout(() => document.getElementById('sub-search-panel').classList.add('hidden'), 1500);
+    } catch(e) { status.textContent = 'Erro ao carregar legenda.'; }
+}
 </script>
 @endpush

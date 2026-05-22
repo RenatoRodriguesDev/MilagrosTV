@@ -45,4 +45,8 @@ return [
         'key' => env('JACKETT_KEY'),
     ],
 
+    'subdl' => [
+        'key' => env('SUBDL_API_KEY'),
+    ],
+
 ];

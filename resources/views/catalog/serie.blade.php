@@ -133,14 +133,35 @@
             {{-- WebTorrent player inline --}}
             <div id="wt-player-box" class="hidden mb-3">
                 <div class="bg-black rounded-xl overflow-hidden">
-                    <video id="wt-video" controls class="w-full" style="max-height:300px;"></video>
+                    <video id="wt-video" controls playsinline class="w-full" style="max-height:300px;"></video>
                 </div>
                 <div class="flex items-center justify-between mt-2 text-xs px-1">
                     <span id="wt-status" class="text-gray-400">A carregar...</span>
-                    <button onclick="stopWebTorrent()" class="text-gray-600 hover:text-red-400 transition">✕ Parar</button>
+                    <div class="flex items-center gap-3">
+                        <button onclick="toggleSubSearch()" class="text-gray-500 hover:text-blue-400 transition">🔤 Legendas</button>
+                        <button onclick="stopWebTorrent()" class="text-gray-600 hover:text-red-400 transition">✕ Parar</button>
+                    </div>
                 </div>
                 <div class="w-full bg-white/5 rounded-full h-1 mt-1">
                     <div id="wt-progress" class="bg-red-500 h-1 rounded-full transition-all" style="width:0%"></div>
+                </div>
+                {{-- Subtitle search panel --}}
+                <div id="sub-search-panel" class="hidden mt-3 bg-white/5 rounded-xl p-3">
+                    <div class="flex gap-2 mb-2">
+                        <input type="text" id="sub-query" placeholder="Título do episódio..."
+                            class="flex-1 bg-white/5 border border-white/10 text-white rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-blue-500">
+                        <button onclick="searchSubtitles()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition">
+                            Pesquisar
+                        </button>
+                    </div>
+                    <div class="flex gap-1.5 mb-2">
+                        <button onclick="setSubLang('PT')" id="sublang-PT" class="sub-lang-btn px-2.5 py-1 rounded-full text-xs font-semibold transition bg-white/20 text-white">🇵🇹 PT</button>
+                        <button onclick="setSubLang('ES')" id="sublang-ES" class="sub-lang-btn px-2.5 py-1 rounded-full text-xs font-semibold transition bg-white/5 text-gray-400">🇪🇸 ES</button>
+                        <button onclick="setSubLang('EN')" id="sublang-EN" class="sub-lang-btn px-2.5 py-1 rounded-full text-xs font-semibold transition bg-white/5 text-gray-400">🇬🇧 EN</button>
+                        <button onclick="setSubLang('PT,ES,EN')" id="sublang-PT,ES,EN" class="sub-lang-btn px-2.5 py-1 rounded-full text-xs font-semibold transition bg-white/5 text-gray-400">Todos</button>
+                    </div>
+                    <div id="sub-results" class="space-y-1 max-h-40 overflow-y-auto"></div>
+                    <p id="sub-status" class="text-xs text-gray-500 mt-1"></p>
                 </div>
             </div>
 
@@ -170,7 +191,7 @@
                 </button>
             </div>
             <div style="background:#000;border-radius:12px;line-height:0;">
-                <video id="video-player" controls style="width:100%;max-height:70vh;display:none;border-radius:12px;"></video>
+                <video id="video-player" controls playsinline style="width:100%;max-height:70vh;display:none;border-radius:12px;"></video>
                 <iframe id="iframe-player" frameborder="0" allowfullscreen
                     allow="autoplay; fullscreen"
                     style="width:100%;height:70vh;display:none;border:none;border-radius:12px;"></iframe>
@@ -549,5 +570,117 @@ function closeTorrents() {
 document.getElementById('torrent-search-input')?.addEventListener('keydown', e => {
     if (e.key === 'Enter') doTorrentSearch();
 });
+
+document.getElementById('sub-query')?.addEventListener('keydown', e => {
+    if (e.key === 'Enter') searchSubtitles();
+});
+
+// ── Subtitle search (Subdl) ───────────────────────────────────────────────────
+const LANG_LABELS = { pt: '🇵🇹 PT', br_pt: '🇧🇷 PT-BR', es: '🇪🇸 ES', en: '🇬🇧 EN', no: '🇳🇴 NO', fr: '🇫🇷 FR', de: '🇩🇪 DE', it: '🇮🇹 IT', id: '🇮🇩 ID', ro: '🇷🇴 RO' };
+let activeSublang = 'PT';
+
+function setSubLang(lang) {
+    activeSublang = lang;
+    document.querySelectorAll('.sub-lang-btn').forEach(b => {
+        b.classList.remove('bg-white/20', 'text-white');
+        b.classList.add('bg-white/5', 'text-gray-400');
+    });
+    const btn = document.getElementById('sublang-' + lang);
+    if (btn) { btn.classList.remove('bg-white/5', 'text-gray-400'); btn.classList.add('bg-white/20', 'text-white'); }
+}
+
+let subSeason = null, subEpisode = null;
+
+function toggleSubSearch() {
+    const panel = document.getElementById('sub-search-panel');
+    panel.classList.toggle('hidden');
+    if (!panel.classList.contains('hidden')) {
+        // Extract title and season/episode from torrent query (e.g. "FROM S01E07")
+        const q = document.getElementById('torrent-search-input')?.value || '';
+        const m = q.match(/^(.*?)\s*[Ss](\d{1,2})[Ee](\d{1,3})/);
+        if (m) {
+            document.getElementById('sub-query').value = m[1].trim() || q;
+            subSeason  = parseInt(m[2]);
+            subEpisode = parseInt(m[3]);
+        } else {
+            document.getElementById('sub-query').value = q;
+            subSeason = null; subEpisode = null;
+        }
+        document.getElementById('sub-query').focus();
+    }
+}
+
+async function searchSubtitles() {
+    const query  = document.getElementById('sub-query').value.trim();
+    const lang   = activeSublang;
+    const status = document.getElementById('sub-status');
+    const list   = document.getElementById('sub-results');
+
+    if (!query) return;
+    status.textContent = 'A pesquisar...';
+    list.innerHTML = '';
+
+    try {
+        let url = `/subtitles/search?query=${encodeURIComponent(query)}&lang=${encodeURIComponent(lang)}&type=tv`;
+        if (subSeason)  url += `&season=${subSeason}`;
+        if (subEpisode) url += `&episode=${subEpisode}`;
+        const res  = await fetch(url);
+        const subs = await res.json();
+
+        if (!subs.length) { status.textContent = 'Sem resultados.'; return; }
+        status.textContent = `${subs.length} legenda(s) encontrada(s)`;
+
+        list.innerHTML = subs.slice(0, 20).map((s, i) => {
+            const langLabel = LANG_LABELS[s.lang_code] || s.lang || '?';
+            const epInfo = s.season
+                ? (s.episode ? `E${String(s.episode).padStart(2,'0')}` : `S${String(s.season).padStart(2,'0')} completo`)
+                : '';
+            return `
+            <div class="flex items-center gap-2 bg-white/5 rounded-lg px-3 py-2 text-xs">
+                <span class="flex-shrink-0">${langLabel}</span>
+                ${epInfo ? `<span class="flex-shrink-0 text-gray-500 font-mono">${epInfo}</span>` : ''}
+                <span class="flex-1 text-gray-300 truncate">${s.name}</span>
+                <button onclick="loadExternalSubtitle('${encodeURIComponent(s.url)}')"
+                    class="flex-shrink-0 bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded font-semibold transition">
+                    ✓ Usar
+                </button>
+            </div>`;
+        }).join('');
+    } catch(e) {
+        status.textContent = 'Erro ao pesquisar legendas.';
+    }
+}
+
+async function loadExternalSubtitle(encodedUrl) {
+    const status = document.getElementById('sub-status');
+    status.textContent = 'A descarregar legenda...';
+
+    try {
+        const url = decodeURIComponent(encodedUrl);
+        const vttUrl = `/subtitles/download?url=${encodeURIComponent(url)}`;
+
+        const video = document.getElementById('wt-video');
+        Array.from(video.querySelectorAll('track[data-external]')).forEach(t => t.remove());
+
+        const track = document.createElement('track');
+        track.kind    = 'subtitles';
+        track.src     = vttUrl;
+        track.label   = activeSublang;
+        track.srclang = activeSublang.toLowerCase().split(',')[0];
+        track.default = true;
+        track.dataset.external = '1';
+        video.appendChild(track);
+
+        // Force activate
+        if (video.textTracks.length > 0) {
+            video.textTracks[video.textTracks.length - 1].mode = 'showing';
+        }
+
+        status.textContent = '✓ Legenda carregada!';
+        setTimeout(() => document.getElementById('sub-search-panel').classList.add('hidden'), 1500);
+    } catch(e) {
+        status.textContent = 'Erro ao carregar legenda.';
+    }
+}
 </script>
 @endpush

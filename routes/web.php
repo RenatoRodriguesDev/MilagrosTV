@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\CatalogController;
+use App\Http\Controllers\SubtitleController;
 use App\Http\Controllers\TorrentController;
 use App\Http\Controllers\VideoController;
 use App\Http\Controllers\Admin\AuthController;
@@ -24,6 +25,8 @@ Route::get('/movies/{movie}', [CatalogController::class, 'movie'])->name('catalo
 Route::post('/watched', [CatalogController::class, 'toggleWatched'])->name('catalog.watched');
 Route::get('/video/episode/{episode}', [VideoController::class, 'stream'])->name('video.episode');
 Route::get('/torrents/search', [TorrentController::class, 'search'])->name('torrents.search');
+Route::get('/subtitles/search', [SubtitleController::class, 'search'])->name('subtitles.search');
+Route::get('/subtitles/download', [SubtitleController::class, 'download'])->name('subtitles.download');
 
 // Admin - autenticação
 Route::get('/admin/login', [AuthController::class, 'showLogin'])->name('admin.login');
