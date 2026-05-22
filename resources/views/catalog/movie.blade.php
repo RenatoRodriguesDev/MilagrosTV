@@ -206,6 +206,7 @@ const PLYR_CONFIG = {
     speed: { selected: 1, options: [0.5, 0.75, 1, 1.25, 1.5, 2] },
     keyboard: { focused: true, global: false },
     tooltips: { controls: false, seek: true },
+    fullscreen: { enabled: true, fallback: true, iosNative: true },
     i18n: {
         play: 'Reproduzir', pause: 'Pausar',
         rewind: 'Recuar 10s', fastForward: 'Avançar 10s',
@@ -221,10 +222,12 @@ function getTorrentPlyr() {
     if (!torrentPlyr) {
         torrentPlyr = new Plyr('#wt-video', PLYR_CONFIG);
         torrentPlyr.on('enterfullscreen', () => {
+            screen.orientation?.lock?.('landscape').catch(() => {});
             subtitleSize = Math.min(40, subtitleSize + 12);
             updateSubSizeDisplay();
         });
         torrentPlyr.on('exitfullscreen', () => {
+            screen.orientation?.unlock?.();
             subtitleSize = Math.max(10, subtitleSize - 12);
             updateSubSizeDisplay();
         });
