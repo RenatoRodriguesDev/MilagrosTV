@@ -167,6 +167,20 @@
 
 @push('scripts')
 <script>
+let torrentPlyr = null;
+function getTorrentPlyr() {
+    if (!torrentPlyr) {
+        torrentPlyr = new Plyr('#wt-video', {
+            controls: ['play-large', 'play', 'progress', 'current-time', 'duration', 'mute', 'volume', 'captions', 'fullscreen'],
+            settings: ['captions', 'speed'],
+            captions: { active: true, language: 'auto', update: true },
+            speed: { selected: 1, options: [0.5, 0.75, 1, 1.25, 1.5, 2] },
+            keyboard: { focused: true, global: false },
+            i18n: { play: 'Reproduzir', pause: 'Pausar', mute: 'Sem som', captions: 'Legendas', settings: 'Definições', enterFullscreen: 'Ecrã inteiro', exitFullscreen: 'Sair', speed: 'Velocidade', normal: 'Normal' }
+        });
+    }
+    return torrentPlyr;
+}
 // ── Language badge detection ──────────────────────────────────────────────────
 function detectLangBadges(title) {
     const t = title.toUpperCase();
@@ -338,10 +352,10 @@ async function playWebTorrent(idx) {
         progress.style.width = '90%';
         status.textContent = `A iniciar: ${info.name || '...'} (${info.peers} peers)`;
         await loadSubtitles(video, magnet);
-        video.src = `${STREAM_SERVER}/stream?magnet=${encodeURIComponent(magnet)}`;
-        video.play().catch(() => {});
-        video.onloadedmetadata = () => { status.textContent = '▶ A reproduzir'; progress.style.width = '100%'; };
-        video.onerror = () => { status.textContent = '⚠ Erro ao reproduzir — tenta novamente.'; };
+        const player = getTorrentPlyr();
+        player.source = { type: 'video', sources: [{ src: `${STREAM_SERVER}/stream?magnet=${encodeURIComponent(magnet)}`, type: 'video/mp4' }] };
+        player.once('ready', () => { player.play().catch(() => {}); status.textContent = '▶ A reproduzir'; progress.style.width = '100%'; });
+        player.on('error', () => { status.textContent = '⚠ Erro ao reproduzir — tenta novamente.'; });
     } catch(e) {
         clearInterval(progressInterval); progressInterval = null;
         progress.style.width = '0%';
@@ -351,8 +365,7 @@ async function playWebTorrent(idx) {
 
 function stopWebTorrent() {
     if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
-    const video = document.getElementById('wt-video');
-    if (video) { video.pause(); video.src = ''; }
+    if (torrentPlyr) torrentPlyr.pause();
     document.getElementById('wt-player-box')?.classList.add('hidden');
 }
 
@@ -417,15 +430,17 @@ async function loadExternalSubtitle(encodedUrl) {
     try {
         const url    = decodeURIComponent(encodedUrl);
         const vttUrl = `/subtitles/download?url=${encodeURIComponent(url)}`;
-        const video  = document.getElementById('wt-video');
+        const video  = getTorrentPlyr().media;
         Array.from(video.querySelectorAll('track[data-external]')).forEach(t => t.remove());
         const track = document.createElement('track');
         track.kind = 'subtitles'; track.src = vttUrl;
-        track.label = document.getElementById('sub-lang').value;
-        track.srclang = document.getElementById('sub-lang').value.toLowerCase().split(',')[0];
+        track.label = activeSublang; track.srclang = activeSublang.toLowerCase().split(',')[0];
         track.default = true; track.dataset.external = '1';
         video.appendChild(track);
-        if (video.textTracks.length > 0) video.textTracks[video.textTracks.length - 1].mode = 'showing';
+        track.addEventListener('load', () => {
+            for (const t of video.textTracks) t.mode = 'disabled';
+            video.textTracks[video.textTracks.length - 1].mode = 'showing';
+        });
         status.textContent = '✓ Legenda carregada!';
         setTimeout(() => document.getElementById('sub-search-panel').classList.add('hidden'), 1500);
     } catch(e) { status.textContent = 'Erro ao carregar legenda.'; }

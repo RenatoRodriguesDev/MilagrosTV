@@ -13,6 +13,7 @@
     <meta name="theme-color" content="#E50914">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css">
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         tailwind.config = {
@@ -61,6 +62,17 @@
 
         /* Mobile bottom nav */
         .bottom-nav { padding-bottom: env(safe-area-inset-bottom); }
+
+        /* Plyr customization */
+        :root {
+            --plyr-color-main: #E50914;
+            --plyr-video-background: #000;
+            --plyr-font-family: 'Inter', sans-serif;
+            --plyr-font-size-base: 13px;
+        }
+        .plyr--video { border-radius: 12px; overflow: hidden; }
+        .plyr__control--overlaid { background: rgba(229,9,20,0.85) !important; }
+        .plyr__control--overlaid:hover { background: #E50914 !important; }
 
         /* Prevent text select on tap */
         nav, .card-item { -webkit-tap-highlight-color: transparent; user-select: none; }
@@ -169,6 +181,7 @@
         </div>
     </div>
 
+    <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
     @stack('scripts')
 
     <script>

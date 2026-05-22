@@ -265,6 +265,44 @@
 
 @push('scripts')
 <script>
+// ── Plyr setup ────────────────────────────────────────────────────────────────
+const PLYR_CONFIG = {
+    controls: ['play-large', 'play', 'rewind', 'fast-forward', 'progress', 'current-time', 'duration', 'mute', 'volume', 'captions', 'settings', 'fullscreen'],
+    settings: ['captions', 'speed'],
+    captions: { active: true, language: 'auto', update: true },
+    speed: { selected: 1, options: [0.5, 0.75, 1, 1.25, 1.5, 2] },
+    keyboard: { focused: true, global: false },
+    tooltips: { controls: false, seek: true },
+    i18n: {
+        play: 'Reproduzir', pause: 'Pausar',
+        rewind: 'Recuar 10s', fastForward: 'Avançar 10s',
+        mute: 'Sem som', volume: 'Volume',
+        captions: 'Legendas', settings: 'Definições',
+        enterFullscreen: 'Ecrã inteiro', exitFullscreen: 'Sair',
+        speed: 'Velocidade', normal: 'Normal',
+    }
+};
+let episodePlyr = null;
+let torrentPlyr = null;
+
+function getEpisodePlyr() {
+    if (!episodePlyr) {
+        document.getElementById('video-player').style.display = 'block';
+        episodePlyr = new Plyr('#video-player', PLYR_CONFIG);
+    }
+    return episodePlyr;
+}
+
+function getTorrentPlyr() {
+    if (!torrentPlyr) {
+        torrentPlyr = new Plyr('#wt-video', {
+            ...PLYR_CONFIG,
+            controls: ['play-large', 'play', 'progress', 'current-time', 'duration', 'mute', 'volume', 'captions', 'fullscreen'],
+        });
+    }
+    return torrentPlyr;
+}
+
 function showSeason(season) {
     document.querySelectorAll('.season-list').forEach(el => el.classList.add('hidden'));
     document.querySelectorAll('.season-tab').forEach(el => {
@@ -280,24 +318,25 @@ function showSeason(season) {
 }
 
 function playEpisode(episodeId, label, embedUrl = null) {
-    const video  = document.getElementById('video-player');
     const iframe = document.getElementById('iframe-player');
     const modal  = document.getElementById('player-modal');
     const lbl    = document.getElementById('player-label');
 
-    video.pause();
-    video.src = '';
-    video.style.display = 'none';
     iframe.src = '';
     iframe.style.display = 'none';
 
     if (embedUrl) {
+        if (episodePlyr) episodePlyr.pause();
+        document.getElementById('video-player').style.display = 'none';
         iframe.src = embedUrl;
         iframe.style.display = 'block';
     } else {
-        video.src = '/video/episode/' + episodeId;
-        video.style.display = 'block';
-        setTimeout(() => video.play(), 300);
+        const player = getEpisodePlyr();
+        player.source = {
+            type: 'video',
+            sources: [{ src: '/video/episode/' + episodeId, type: 'video/mp4' }]
+        };
+        player.once('ready', () => player.play());
     }
 
     lbl.textContent = label;
@@ -306,12 +345,9 @@ function playEpisode(episodeId, label, embedUrl = null) {
 }
 
 function closePlayer() {
-    const video  = document.getElementById('video-player');
     const iframe = document.getElementById('iframe-player');
     const modal  = document.getElementById('player-modal');
-    video.pause();
-    video.src = '';
-    video.style.display = 'none';
+    if (episodePlyr) episodePlyr.pause();
     iframe.src = '';
     iframe.style.display = 'none';
     modal.classList.add('hidden');
@@ -465,29 +501,26 @@ function detectSubLang(filename) {
     return { code: 'und', label: 'Legenda' };
 }
 
-async function loadSubtitles(video, magnet) {
-    // Remove any existing tracks
-    Array.from(video.querySelectorAll('track')).forEach(t => t.remove());
+async function getSubtitleTracks(magnet) {
     try {
         const res = await fetch(`${STREAM_SERVER}/subtitles?magnet=${encodeURIComponent(magnet)}`);
-        if (!res.ok) return;
+        if (!res.ok) return [];
         const subs = await res.json();
-        if (!subs.length) return;
+        if (!subs.length) return [];
 
-        const status = document.getElementById('wt-status');
-        status.textContent += ` · ${subs.length} legenda(s) encontrada(s)`;
+        document.getElementById('wt-status').textContent += ` · ${subs.length} legenda(s)`;
 
-        subs.forEach((sub, i) => {
+        return subs.map((sub, i) => {
             const lang = detectSubLang(sub.name);
-            const track = document.createElement('track');
-            track.kind    = 'subtitles';
-            track.label   = lang.label;
-            track.srclang = lang.code;
-            track.src     = `${STREAM_SERVER}/subtitle?magnet=${encodeURIComponent(magnet)}&name=${encodeURIComponent(sub.name)}`;
-            if (i === 0) track.default = true;
-            video.appendChild(track);
+            return {
+                kind: 'subtitles',
+                label: lang.label,
+                srclang: lang.code,
+                src: `${STREAM_SERVER}/subtitle?magnet=${encodeURIComponent(magnet)}&name=${encodeURIComponent(sub.name)}`,
+                default: i === 0,
+            };
         });
-    } catch(e) { /* no subtitles, fine */ }
+    } catch(e) { return []; }
 }
 
 // ── Torrent streaming via servidor local ──────────────────────────────────────
@@ -530,21 +563,27 @@ async function playWebTorrent(idx) {
         status.textContent = `A iniciar: ${info.name || '...'} (${info.peers} peers)`;
 
         // Load subtitles from torrent (if any .srt/.ass files exist)
-        await loadSubtitles(video, magnet);
+        const tracks = await getSubtitleTracks(magnet);
 
         // Step 2: now the torrent is ready — stream immediately
         const streamUrl = `${STREAM_SERVER}/stream?magnet=${encodeURIComponent(magnet)}`;
-        video.src = streamUrl;
-        video.play().catch(() => {});
+        const player = getTorrentPlyr();
 
-        video.onloadedmetadata = () => {
+        player.source = {
+            type: 'video',
+            sources: [{ src: streamUrl, type: 'video/mp4' }],
+            tracks: tracks,
+        };
+
+        player.once('ready', () => {
+            player.play().catch(() => {});
             status.textContent   = '▶ A reproduzir via torrent stream';
             progress.style.width = '100%';
-        };
+        });
 
-        video.onerror = () => {
+        player.on('error', () => {
             status.textContent = '⚠ Erro ao reproduzir — tenta novamente.';
-        };
+        });
 
     } catch(e) {
         clearInterval(progressInterval);
@@ -556,8 +595,7 @@ async function playWebTorrent(idx) {
 
 function stopWebTorrent() {
     if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
-    const video = document.getElementById('wt-video');
-    if (video) { video.pause(); video.src = ''; }
+    if (torrentPlyr) { torrentPlyr.pause(); }
     document.getElementById('wt-player-box')?.classList.add('hidden');
 }
 
@@ -656,10 +694,11 @@ async function loadExternalSubtitle(encodedUrl) {
     status.textContent = 'A descarregar legenda...';
 
     try {
-        const url = decodeURIComponent(encodedUrl);
+        const url    = decodeURIComponent(encodedUrl);
         const vttUrl = `/subtitles/download?url=${encodeURIComponent(url)}`;
+        const player = getTorrentPlyr();
+        const video  = player.media;
 
-        const video = document.getElementById('wt-video');
         Array.from(video.querySelectorAll('track[data-external]')).forEach(t => t.remove());
 
         const track = document.createElement('track');
@@ -671,10 +710,10 @@ async function loadExternalSubtitle(encodedUrl) {
         track.dataset.external = '1';
         video.appendChild(track);
 
-        // Force activate
-        if (video.textTracks.length > 0) {
+        track.addEventListener('load', () => {
+            for (const t of video.textTracks) t.mode = 'disabled';
             video.textTracks[video.textTracks.length - 1].mode = 'showing';
-        }
+        });
 
         status.textContent = '✓ Legenda carregada!';
         setTimeout(() => document.getElementById('sub-search-panel').classList.add('hidden'), 1500);
