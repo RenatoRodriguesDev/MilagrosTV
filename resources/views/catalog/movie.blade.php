@@ -206,7 +206,7 @@ const PLYR_CONFIG = {
     speed: { selected: 1, options: [0.5, 0.75, 1, 1.25, 1.5, 2] },
     keyboard: { focused: true, global: false },
     tooltips: { controls: false, seek: true },
-    fullscreen: { enabled: true, fallback: true, iosNative: true },
+    fullscreen: { enabled: true, fallback: true, iosNative: false },
     i18n: {
         play: 'Reproduzir', pause: 'Pausar',
         rewind: 'Recuar 10s', fastForward: 'Avançar 10s',
@@ -218,19 +218,44 @@ const PLYR_CONFIG = {
 };
 let torrentPlyr = null;
 
+function setupOrientationLock(player, onEnter, onExit) {
+    ['fullscreenchange', 'webkitfullscreenchange'].forEach(ev => {
+        document.addEventListener(ev, () => {
+            const isFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
+            if (isFS) screen.orientation?.lock?.('landscape').catch(() => {});
+            else      screen.orientation?.unlock?.();
+        });
+    });
+    player.on('enterfullscreen', () => {
+        if (onEnter) onEnter();
+        setTimeout(() => {
+            const realFS = !!(document.fullscreenElement || document.webkitFullscreenElement);
+            if (!realFS && window.innerWidth < window.innerHeight) {
+                const c = player.elements?.container;
+                if (c) {
+                    const scale = window.innerWidth / window.innerHeight;
+                    c.style.transform = `rotate(90deg) scale(${scale})`;
+                    c.style.transformOrigin = 'center center';
+                }
+            }
+        }, 100);
+    });
+    player.on('exitfullscreen', () => {
+        if (onExit) onExit();
+        screen.orientation?.unlock?.();
+        const c = player.elements?.container;
+        if (c) { c.style.transform = ''; c.style.transformOrigin = ''; }
+    });
+}
+
 function getTorrentPlyr() {
     if (!torrentPlyr) {
         torrentPlyr = new Plyr('#wt-video', PLYR_CONFIG);
-        torrentPlyr.on('enterfullscreen', () => {
-            screen.orientation?.lock?.('landscape').catch(() => {});
-            subtitleSize = Math.min(40, subtitleSize + 12);
-            updateSubSizeDisplay();
-        });
-        torrentPlyr.on('exitfullscreen', () => {
-            screen.orientation?.unlock?.();
-            subtitleSize = Math.max(10, subtitleSize - 12);
-            updateSubSizeDisplay();
-        });
+        setupOrientationLock(
+            torrentPlyr,
+            () => { subtitleSize = Math.min(40, subtitleSize + 12); updateSubSizeDisplay(); },
+            () => { subtitleSize = Math.max(10, subtitleSize - 12); updateSubSizeDisplay(); }
+        );
     }
     return torrentPlyr;
 }
