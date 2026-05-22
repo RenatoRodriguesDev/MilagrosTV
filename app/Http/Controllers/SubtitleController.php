@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Services\SubdlService;
+use App\Services\OpenSubtitlesService;
 use Illuminate\Http\Request;
 
 class SubtitleController extends Controller
@@ -10,41 +10,43 @@ class SubtitleController extends Controller
     public function search(Request $request)
     {
         $request->validate([
-            'query'    => 'required|string|max:200',
-            'lang'     => 'nullable|string|max:20',
-            'type'     => 'nullable|in:movie,tv',
-            'season'   => 'nullable|integer',
-            'episode'  => 'nullable|integer',
+            'query'   => 'required|string|max:200',
+            'type'    => 'nullable|in:movie,tv',
+            'season'  => 'nullable|integer',
+            'episode' => 'nullable|integer',
         ]);
 
-        $langs   = strtoupper($request->input('lang', 'PT,EN,ES'));
-        $service = app(SubdlService::class);
+        $season  = $request->integer('season') ?: null;
+        $episode = $request->integer('episode') ?: null;
 
-        $results = $service->search(
+        $results = app(OpenSubtitlesService::class)->search(
             query:   $request->input('query'),
-            languages: $langs,
             type:    $request->input('type'),
-            season:  $request->input('season'),
-            episode: $request->input('episode'),
+            season:  $season,
+            episode: $episode,
         );
+
+        // Filter to exact episode only when episode is specified
+        if ($episode) {
+            $results = array_values(array_filter($results, function ($r) use ($episode) {
+                $from = $r['episode_from'] ?? null;
+                $end  = $r['episode_end']  ?? null;
+                if (!$from) return false;
+                $from = (int) $from;
+                $end  = $end !== null ? (int) $end : $from;
+                return $from === $episode && $end === $episode;
+            }));
+        }
 
         return response()->json($results);
     }
 
     public function download(Request $request)
     {
-        $request->validate(['url' => 'required|string']);
-
-        $url = $request->input('url');
-
-        // Só permite URLs do Subdl
-        if (!str_starts_with($url, '/subtitle/')) {
-            return response('URL inválido.', 400);
-        }
+        $request->validate(['file_id' => 'required|integer']);
 
         try {
-            $service = app(SubdlService::class);
-            $vtt     = $service->downloadVtt($url);
+            $vtt = app(OpenSubtitlesService::class)->downloadVtt((int) $request->input('file_id'));
 
             return response($vtt, 200, [
                 'Content-Type'                => 'text/vtt; charset=utf-8',

@@ -69,7 +69,7 @@
             <p class="text-gray-300 text-sm leading-relaxed max-w-2xl line-clamp-3 mb-4">{{ $movie->localSynopsis() }}</p>
             @endif
 
-            <button onclick="openTorrents('{{ addslashes($movie->localTitle()) }}', 'movie')"
+            <button onclick="openTorrents('{{ addslashes($movie->original_title ?? $movie->title) }}', 'movie')"
                 class="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
                 🧲 Encontrar streams
             </button>
@@ -139,19 +139,41 @@
                 <div class="w-full bg-white/5 rounded-full h-1 mt-1">
                     <div id="wt-progress" class="bg-red-500 h-1 rounded-full transition-all" style="width:0%"></div>
                 </div>
+                {{-- Subtitle controls (offset + style) --}}
+                <div id="sub-offset-bar" class="hidden flex-col gap-1.5 mt-2 px-1">
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <span class="text-gray-500 text-xs shrink-0">Sync:</span>
+                        <button onclick="adjustSubOffset(-5)"   class="sub-ctrl-btn">-5s</button>
+                        <button onclick="adjustSubOffset(-1)"   class="sub-ctrl-btn">-1s</button>
+                        <button onclick="adjustSubOffset(-0.5)" class="sub-ctrl-btn">-0.5s</button>
+                        <span id="sub-offset-display" class="text-white text-xs font-mono w-10 text-center shrink-0">0.0s</span>
+                        <button onclick="adjustSubOffset(0.5)"  class="sub-ctrl-btn">+0.5s</button>
+                        <button onclick="adjustSubOffset(1)"    class="sub-ctrl-btn">+1s</button>
+                        <button onclick="adjustSubOffset(5)"    class="sub-ctrl-btn">+5s</button>
+                        <button onclick="resetSubOffset()"      class="sub-ctrl-btn text-gray-600 ml-1">Reset</button>
+                    </div>
+                    <div class="flex items-center gap-1.5 flex-wrap">
+                        <span class="text-gray-500 text-xs shrink-0">Legenda:</span>
+                        <button onclick="adjustSubSize(-2)"  class="sub-ctrl-btn">A−</button>
+                        <span id="sub-size-display" class="text-white text-xs font-mono w-8 text-center shrink-0">18</span>
+                        <button onclick="adjustSubSize(2)"   class="sub-ctrl-btn">A+</button>
+                        <button onclick="toggleSubBg()" id="sub-bg-btn" class="sub-ctrl-btn ml-2">⬛ Fundo</button>
+                    </div>
+                </div>
+                {{-- Subtitle search panel --}}
                 <div id="sub-search-panel" class="hidden mt-3 bg-white/5 rounded-xl p-3">
                     <div class="flex gap-2 mb-2">
                         <input type="text" id="sub-query" placeholder="Título do filme..."
                             class="flex-1 bg-white/5 border border-white/10 text-white rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-blue-500">
-                        <select id="sub-lang" class="bg-white/5 border border-white/10 text-white rounded-lg px-2 py-1.5 text-xs">
-                            <option value="PT">🇵🇹 PT</option>
-                            <option value="ES">🇪🇸 ES</option>
-                            <option value="EN">🇬🇧 EN</option>
-                            <option value="PT,ES,EN">Todos</option>
-                        </select>
                         <button onclick="searchSubtitles()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition">
                             Pesquisar
                         </button>
+                    </div>
+                    <div class="flex gap-1.5 mb-2">
+                        <button onclick="setSubLang('PT')" id="sublang-PT" class="sub-lang-btn px-2.5 py-1 rounded-full text-xs font-semibold transition bg-white/20 text-white">🇵🇹 PT</button>
+                        <button onclick="setSubLang('ES')" id="sublang-ES" class="sub-lang-btn px-2.5 py-1 rounded-full text-xs font-semibold transition bg-white/5 text-gray-400">🇪🇸 ES</button>
+                        <button onclick="setSubLang('EN')" id="sublang-EN" class="sub-lang-btn px-2.5 py-1 rounded-full text-xs font-semibold transition bg-white/5 text-gray-400">🇬🇧 EN</button>
+                        <button onclick="setSubLang('PT,ES,EN')" id="sublang-PT,ES,EN" class="sub-lang-btn px-2.5 py-1 rounded-full text-xs font-semibold transition bg-white/5 text-gray-400">Todos</button>
                     </div>
                     <div id="sub-results" class="space-y-1 max-h-40 overflow-y-auto"></div>
                     <p id="sub-status" class="text-xs text-gray-500 mt-1"></p>
@@ -166,21 +188,56 @@
 @endsection
 
 @push('scripts')
+<style>
+.sub-ctrl-btn {
+    color: #9ca3af; font-size: 0.7rem; padding: 2px 6px;
+    border-radius: 4px; background: rgba(255,255,255,0.05);
+    transition: background 0.15s, color 0.15s;
+}
+.sub-ctrl-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
+.sub-ctrl-btn.active { background: rgba(255,255,255,0.2); color: #fff; }
+</style>
 <script>
+// ── Plyr ──────────────────────────────────────────────────────────────────────
+const PLYR_CONFIG = {
+    controls: ['play-large', 'play', 'rewind', 'fast-forward', 'progress', 'current-time', 'duration', 'mute', 'volume', 'captions', 'settings', 'fullscreen'],
+    settings: ['captions', 'speed'],
+    captions: { active: true, language: 'auto', update: true },
+    speed: { selected: 1, options: [0.5, 0.75, 1, 1.25, 1.5, 2] },
+    keyboard: { focused: true, global: false },
+    tooltips: { controls: false, seek: true },
+    i18n: {
+        play: 'Reproduzir', pause: 'Pausar',
+        rewind: 'Recuar 10s', fastForward: 'Avançar 10s',
+        mute: 'Sem som', volume: 'Volume',
+        captions: 'Legendas', settings: 'Definições',
+        enterFullscreen: 'Ecrã inteiro', exitFullscreen: 'Sair',
+        speed: 'Velocidade', normal: 'Normal',
+    }
+};
 let torrentPlyr = null;
+
 function getTorrentPlyr() {
     if (!torrentPlyr) {
-        torrentPlyr = new Plyr('#wt-video', {
-            controls: ['play-large', 'play', 'progress', 'current-time', 'duration', 'mute', 'volume', 'captions', 'fullscreen'],
-            settings: ['captions', 'speed'],
-            captions: { active: true, language: 'auto', update: true },
-            speed: { selected: 1, options: [0.5, 0.75, 1, 1.25, 1.5, 2] },
-            keyboard: { focused: true, global: false },
-            i18n: { play: 'Reproduzir', pause: 'Pausar', mute: 'Sem som', captions: 'Legendas', settings: 'Definições', enterFullscreen: 'Ecrã inteiro', exitFullscreen: 'Sair', speed: 'Velocidade', normal: 'Normal' }
+        torrentPlyr = new Plyr('#wt-video', PLYR_CONFIG);
+        torrentPlyr.on('enterfullscreen', () => {
+            subtitleSize = Math.min(40, subtitleSize + 12);
+            updateSubSizeDisplay();
+        });
+        torrentPlyr.on('exitfullscreen', () => {
+            subtitleSize = Math.max(10, subtitleSize - 12);
+            updateSubSizeDisplay();
         });
     }
     return torrentPlyr;
 }
+
+function updateSubSizeDisplay() {
+    const el = document.getElementById('sub-size-display');
+    if (el) el.textContent = subtitleSize;
+    if (subtitleOverlay) tickSubtitles(torrentPlyr.currentTime);
+}
+
 // ── Language badge detection ──────────────────────────────────────────────────
 function detectLangBadges(title) {
     const t = title.toUpperCase();
@@ -198,34 +255,6 @@ function detectLangBadges(title) {
             badges.push({ label: 'EN', cls: 'bg-blue-600/30 text-blue-300 border border-blue-500/30' });
     }
     return badges;
-}
-
-// ── Subtitle language detection ───────────────────────────────────────────────
-function detectSubLang(filename) {
-    const f = filename.toLowerCase();
-    if (/[\.\-_](pt|pt[\-_]br|ptbr|por|portuguese|portugu)[\.\-_]/.test(f)) return { code: 'pt', label: 'Português' };
-    if (/[\.\-_](es|esp|spa|spanish|espanol)[\.\-_]/.test(f))               return { code: 'es', label: 'Español' };
-    if (/[\.\-_](en|eng|english)[\.\-_]/.test(f))                           return { code: 'en', label: 'English' };
-    return { code: 'und', label: 'Legenda' };
-}
-
-async function loadSubtitles(video, magnet) {
-    Array.from(video.querySelectorAll('track')).forEach(t => t.remove());
-    try {
-        const res = await fetch(`${STREAM_SERVER}/subtitles?magnet=${encodeURIComponent(magnet)}`);
-        if (!res.ok) return;
-        const subs = await res.json();
-        if (!subs.length) return;
-        document.getElementById('wt-status').textContent += ` · ${subs.length} legenda(s)`;
-        subs.forEach((sub, i) => {
-            const lang = detectSubLang(sub.name);
-            const track = document.createElement('track');
-            track.kind = 'subtitles'; track.label = lang.label; track.srclang = lang.code;
-            track.src = `${STREAM_SERVER}/subtitle?magnet=${encodeURIComponent(magnet)}&name=${encodeURIComponent(sub.name)}`;
-            if (i === 0) track.default = true;
-            video.appendChild(track);
-        });
-    } catch(e) {}
 }
 
 // ── Torrents ──────────────────────────────────────────────────────────────────
@@ -304,8 +333,7 @@ async function doTorrentSearch() {
     const list    = document.getElementById('torrent-list');
     const empty   = document.getElementById('torrent-empty');
     loading.classList.remove('hidden');
-    list.innerHTML = '';
-    empty.classList.add('hidden');
+    list.innerHTML = ''; empty.classList.add('hidden');
     document.getElementById('filter-count').textContent = '';
     try {
         const res = await fetch(`/torrents/search?query=${encodeURIComponent(query)}&type=${torrentType}`);
@@ -327,12 +355,12 @@ document.getElementById('torrent-modal')?.addEventListener('click', function(e) 
 // ── Torrent streaming ─────────────────────────────────────────────────────────
 const STREAM_SERVER = '{{ env("STREAM_SERVER_URL", "/torrent-stream") }}';
 let progressInterval = null;
+let currentStreamUrl = null;
 
 async function playWebTorrent(idx) {
     const magnet = window._magnets[idx];
     if (!magnet) return;
     const box      = document.getElementById('wt-player-box');
-    const video    = document.getElementById('wt-video');
     const status   = document.getElementById('wt-status');
     const progress = document.getElementById('wt-progress');
     stopWebTorrent();
@@ -351,10 +379,10 @@ async function playWebTorrent(idx) {
         clearInterval(progressInterval); progressInterval = null;
         progress.style.width = '90%';
         status.textContent = `A iniciar: ${info.name || '...'} (${info.peers} peers)`;
-        await loadSubtitles(video, magnet);
+        currentStreamUrl = `${STREAM_SERVER}/stream?magnet=${encodeURIComponent(magnet)}`;
         const player = getTorrentPlyr();
-        player.source = { type: 'video', sources: [{ src: `${STREAM_SERVER}/stream?magnet=${encodeURIComponent(magnet)}`, type: 'video/mp4' }] };
-        player.once('ready', () => { player.play().catch(() => {}); status.textContent = '▶ A reproduzir'; progress.style.width = '100%'; });
+        player.source = { type: 'video', sources: [{ src: currentStreamUrl, type: 'video/mp4' }] };
+        player.once('ready', () => { player.play().catch(() => {}); status.textContent = '▶ A reproduzir via torrent stream'; progress.style.width = '100%'; });
         player.on('error', () => { status.textContent = '⚠ Erro ao reproduzir — tenta novamente.'; });
     } catch(e) {
         clearInterval(progressInterval); progressInterval = null;
@@ -366,6 +394,10 @@ async function playWebTorrent(idx) {
 function stopWebTorrent() {
     if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
     if (torrentPlyr) torrentPlyr.pause();
+    if (window._subTick && torrentPlyr) torrentPlyr.media?.removeEventListener('timeupdate', window._subTick);
+    subtitleCues = []; subtitleOverlay = null; subtitleOffset = 0; subtitleSize = 18; subtitleBg = false; activeSubFileId = null;
+    document.getElementById('sub-offset-bar').classList.add('hidden');
+    document.getElementById('sub-offset-bar').classList.remove('flex');
     document.getElementById('wt-player-box')?.classList.add('hidden');
 }
 
@@ -375,75 +407,175 @@ function closeTorrents() {
     document.body.style.overflow = '';
 }
 
-document.getElementById('torrent-search-input')?.addEventListener('keydown', e => {
-    if (e.key === 'Enter') doTorrentSearch();
-});
+document.getElementById('torrent-search-input')?.addEventListener('keydown', e => { if (e.key === 'Enter') doTorrentSearch(); });
+document.getElementById('sub-query')?.addEventListener('keydown', e => { if (e.key === 'Enter') searchSubtitles(); });
 
-document.getElementById('sub-query')?.addEventListener('keydown', e => {
-    if (e.key === 'Enter') searchSubtitles();
-});
+// ── Subtitle search ───────────────────────────────────────────────────────────
+const LANG_LABELS = { pt: '🇵🇹 PT', 'pt-br': '🇧🇷 PT-BR', es: '🇪🇸 ES', en: '🇬🇧 EN', fr: '🇫🇷 FR', de: '🇩🇪 DE', it: '🇮🇹 IT' };
+let activeSublang   = 'PT';
+let allSubResults   = [];
+let activeSubFileId = null;
 
-// ── Subtitle search (Subdl) ───────────────────────────────────────────────────
-const LANG_LABELS = { pt: '🇵🇹 PT', es: '🇪🇸 ES', en: '🇬🇧 EN' };
+function setSubLang(lang) {
+    activeSublang = lang;
+    document.querySelectorAll('.sub-lang-btn').forEach(b => {
+        b.classList.remove('bg-white/20', 'text-white');
+        b.classList.add('bg-white/5', 'text-gray-400');
+    });
+    const btn = document.getElementById('sublang-' + lang);
+    if (btn) { btn.classList.remove('bg-white/5', 'text-gray-400'); btn.classList.add('bg-white/20', 'text-white'); }
+    if (allSubResults.length) renderSubResults(allSubResults);
+}
+
+function renderSubResults(subs) {
+    const list   = document.getElementById('sub-results');
+    const status = document.getElementById('sub-status');
+    const filtered = activeSublang === 'PT,ES,EN' ? subs : subs.filter(s => {
+        const code = (s.lang_code || '').toLowerCase();
+        const sel  = activeSublang.toLowerCase();
+        if (sel === 'pt') return code === 'pt' || code === 'pt-br';
+        return code === sel;
+    });
+    status.textContent = `${filtered.length} legenda(s) encontrada(s)`;
+    if (!filtered.length) {
+        list.innerHTML = `<p class="text-gray-500 text-xs text-center py-3">Sem legendas em ${activeSublang}. Tenta outro idioma.</p>`;
+        return;
+    }
+    list.innerHTML = filtered.slice(0, 20).map(s => {
+        const langLabel = LANG_LABELS[s.lang_code] || s.lang || '?';
+        return `
+        <div class="flex items-center gap-2 bg-white/5 rounded-lg px-3 py-2 text-xs">
+            <span class="flex-shrink-0">${langLabel}</span>
+            <span class="flex-1 text-gray-300 truncate">${s.name}</span>
+            ${s.file_id === activeSubFileId
+                ? `<span class="flex-shrink-0 bg-green-600 text-white px-2 py-1 rounded font-semibold">✓ Em uso</span>`
+                : `<button onclick="loadExternalSubtitle(${s.file_id})" class="flex-shrink-0 bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded font-semibold transition">✓ Usar</button>`}
+        </div>`;
+    }).join('');
+}
 
 function toggleSubSearch() {
     const panel = document.getElementById('sub-search-panel');
     panel.classList.toggle('hidden');
     if (!panel.classList.contains('hidden')) {
-        const q = document.getElementById('torrent-search-input')?.value || '{{ addslashes($movie->localTitle()) }}';
-        document.getElementById('sub-query').value = q;
+        document.getElementById('sub-query').value = '{{ addslashes($movie->original_title ?? $movie->title) }}';
         document.getElementById('sub-query').focus();
     }
 }
 
 async function searchSubtitles() {
     const query  = document.getElementById('sub-query').value.trim();
-    const lang   = document.getElementById('sub-lang').value;
     const status = document.getElementById('sub-status');
     const list   = document.getElementById('sub-results');
     if (!query) return;
     status.textContent = 'A pesquisar...';
     list.innerHTML = '';
     try {
-        const res  = await fetch(`/subtitles/search?query=${encodeURIComponent(query)}&lang=${encodeURIComponent(lang)}&type=movie`);
+        const res  = await fetch(`/subtitles/search?query=${encodeURIComponent(query)}&type=movie`);
         const subs = await res.json();
-        if (!subs.length) { status.textContent = 'Sem resultados.'; return; }
-        status.textContent = `${subs.length} legenda(s) encontrada(s)`;
-        list.innerHTML = subs.slice(0, 20).map(s => {
-            const langLabel = LANG_LABELS[s.lang_code] || s.lang || '?';
-            return `
-            <div class="flex items-center gap-2 bg-white/5 rounded-lg px-3 py-2 text-xs">
-                <span class="flex-shrink-0">${langLabel}</span>
-                <span class="flex-1 text-gray-300 truncate">${s.name}</span>
-                <button onclick="loadExternalSubtitle('${encodeURIComponent(s.url)}')"
-                    class="flex-shrink-0 bg-blue-600 hover:bg-blue-700 text-white px-2 py-1 rounded font-semibold transition">
-                    ✓ Usar
-                </button>
-            </div>`;
-        }).join('');
+        allSubResults = subs;
+        if (!subs.length) {
+            if (activeSublang !== 'PT,ES,EN') {
+                status.textContent = `Sem resultados em ${activeSublang}. A pesquisar em todos os idiomas...`;
+                setSubLang('PT,ES,EN');
+                await searchSubtitles();
+                return;
+            }
+            status.textContent = 'Sem resultados.';
+            return;
+        }
+        renderSubResults(subs);
     } catch(e) { status.textContent = 'Erro ao pesquisar legendas.'; }
 }
 
-async function loadExternalSubtitle(encodedUrl) {
+// ── Custom subtitle overlay ───────────────────────────────────────────────────
+let subtitleCues    = [];
+let subtitleOverlay = null;
+let subtitleOffset  = 0;
+let subtitleSize    = 18;
+let subtitleBg      = false;
+
+function adjustSubOffset(delta) {
+    subtitleOffset += delta;
+    document.getElementById('sub-offset-display').textContent =
+        (subtitleOffset >= 0 ? '+' : '') + subtitleOffset.toFixed(1) + 's';
+    tickSubtitles(getTorrentPlyr().currentTime);
+}
+function resetSubOffset() {
+    subtitleOffset = 0;
+    document.getElementById('sub-offset-display').textContent = '0.0s';
+}
+function adjustSubSize(delta) {
+    subtitleSize = Math.min(40, Math.max(10, subtitleSize + delta));
+    updateSubSizeDisplay();
+}
+function toggleSubBg() {
+    subtitleBg = !subtitleBg;
+    document.getElementById('sub-bg-btn').classList.toggle('active', subtitleBg);
+    tickSubtitles(getTorrentPlyr().currentTime);
+}
+
+function ensureSubtitleOverlay() {
+    if (subtitleOverlay) return subtitleOverlay;
+    const container = getTorrentPlyr().elements.container;
+    subtitleOverlay = document.createElement('div');
+    subtitleOverlay.style.cssText = 'position:absolute;bottom:13%;left:0;right:0;text-align:center;z-index:9;pointer-events:none;padding:0 16px;';
+    container.appendChild(subtitleOverlay);
+    return subtitleOverlay;
+}
+
+function parseVtt(text) {
+    const cues = [];
+    const blocks = text.replace(/\r\n/g, '\n').split(/\n\n+/);
+    for (const block of blocks) {
+        const lines  = block.trim().split('\n');
+        const tsLine = lines.find(l => l.includes('-->'));
+        if (!tsLine) continue;
+        const [s, e] = tsLine.split('-->').map(p => vttTime(p.trim().split(' ')[0]));
+        const txt = lines.slice(lines.indexOf(tsLine) + 1).join('\n').replace(/<[^>]+>/g, '').trim();
+        if (txt) cues.push({ start: s, end: e, text: txt });
+    }
+    return cues;
+}
+function vttTime(ts) {
+    const p = ts.split(':').map(Number);
+    return p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p[0] * 60 + p[1];
+}
+function tickSubtitles(currentTime) {
+    if (!subtitleOverlay) return;
+    const t = currentTime - subtitleOffset;
+    const cue = subtitleCues.find(c => t >= c.start && t <= c.end);
+    const bg     = subtitleBg ? 'background:rgba(0,0,0,.82);padding:4px 12px;border-radius:4px;' : '';
+    const shadow = subtitleBg ? '' : 'text-shadow:1px 1px 3px #000,-1px -1px 3px #000,0 2px 6px rgba(0,0,0,.9);';
+    subtitleOverlay.innerHTML = cue
+        ? `<span style="${bg}${shadow}color:#fff;font-size:${subtitleSize}px;font-weight:600;line-height:1.5;display:inline-block;max-width:94%;white-space:pre-line;">${cue.text}</span>`
+        : '';
+}
+
+async function loadExternalSubtitle(fileId) {
     const status = document.getElementById('sub-status');
     status.textContent = 'A descarregar legenda...';
     try {
-        const url    = decodeURIComponent(encodedUrl);
-        const vttUrl = `/subtitles/download?url=${encodeURIComponent(url)}`;
-        const video  = getTorrentPlyr().media;
-        Array.from(video.querySelectorAll('track[data-external]')).forEach(t => t.remove());
-        const track = document.createElement('track');
-        track.kind = 'subtitles'; track.src = vttUrl;
-        track.label = activeSublang; track.srclang = activeSublang.toLowerCase().split(',')[0];
-        track.default = true; track.dataset.external = '1';
-        video.appendChild(track);
-        track.addEventListener('load', () => {
-            for (const t of video.textTracks) t.mode = 'disabled';
-            video.textTracks[video.textTracks.length - 1].mode = 'showing';
-        });
-        status.textContent = '✓ Legenda carregada!';
+        const res = await fetch(`/subtitles/download?file_id=${fileId}`);
+        if (!res.ok) throw new Error(await res.text());
+        const vttText = await res.text();
+        subtitleCues = parseVtt(vttText);
+        ensureSubtitleOverlay();
+        const video = getTorrentPlyr().media;
+        if (window._subTick) video.removeEventListener('timeupdate', window._subTick);
+        window._subTick = () => tickSubtitles(video.currentTime);
+        video.addEventListener('timeupdate', window._subTick);
+        activeSubFileId = fileId;
+        if (allSubResults.length) renderSubResults(allSubResults);
+        subtitleOffset = 0; subtitleSize = 18; subtitleBg = false;
+        document.getElementById('sub-offset-display').textContent = '0.0s';
+        document.getElementById('sub-size-display').textContent   = '18';
+        document.getElementById('sub-bg-btn').classList.remove('active');
+        document.getElementById('sub-offset-bar').classList.remove('hidden');
+        document.getElementById('sub-offset-bar').classList.add('flex');
+        status.textContent = `✓ ${subtitleCues.length} cues carregados!`;
         setTimeout(() => document.getElementById('sub-search-panel').classList.add('hidden'), 1500);
-    } catch(e) { status.textContent = 'Erro ao carregar legenda.'; }
+    } catch(e) { status.textContent = 'Erro: ' + e.message; }
 }
 </script>
 @endpush

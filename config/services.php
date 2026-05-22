@@ -49,4 +49,10 @@ return [
         'key' => env('SUBDL_API_KEY'),
     ],
 
+    'opensubtitles' => [
+        'key'      => env('OPENSUBTITLES_API_KEY'),
+        'username' => env('OPENSUBTITLES_USERNAME'),
+        'password' => env('OPENSUBTITLES_PASSWORD'),
+    ],
+
 ];
