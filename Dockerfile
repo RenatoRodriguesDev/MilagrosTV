@@ -6,7 +6,9 @@ RUN apk add --no-cache \
     curl \
     sqlite \
     sqlite-dev \
-    && docker-php-ext-install pdo pdo_sqlite opcache
+    libzip-dev \
+    ffmpeg \
+    && docker-php-ext-install pdo pdo_sqlite opcache zip
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 
