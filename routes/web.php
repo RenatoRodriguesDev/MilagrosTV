@@ -3,14 +3,16 @@
 use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\SubtitleController;
 use App\Http\Controllers\TorrentController;
+use App\Http\Controllers\UserAuthController;
 use App\Http\Controllers\VideoController;
+use App\Http\Controllers\WatchProgressController;
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\EpisodeController;
 use App\Http\Controllers\Admin\MovieController;
 use App\Http\Controllers\Admin\SerieController;
 use Illuminate\Support\Facades\Route;
 
-// Idioma
+// Idioma (público)
 Route::get('/locale/{lang}', function (string $lang) {
     if (in_array($lang, ['pt', 'en', 'es'])) {
         session(['locale' => $lang]);
@@ -18,15 +20,30 @@ Route::get('/locale/{lang}', function (string $lang) {
     return back();
 })->name('locale.switch');
 
-// Catálogo público
-Route::get('/', [CatalogController::class, 'index'])->name('catalog.index');
-Route::get('/series/{serie}', [CatalogController::class, 'serie'])->name('catalog.serie');
-Route::get('/movies/{movie}', [CatalogController::class, 'movie'])->name('catalog.movie');
-Route::post('/watched', [CatalogController::class, 'toggleWatched'])->name('catalog.watched');
-Route::get('/video/episode/{episode}', [VideoController::class, 'stream'])->name('video.episode');
-Route::get('/torrents/search', [TorrentController::class, 'search'])->name('torrents.search');
-Route::get('/subtitles/search', [SubtitleController::class, 'search'])->name('subtitles.search');
-Route::get('/subtitles/download', [SubtitleController::class, 'download'])->name('subtitles.download');
+// Auth
+Route::middleware('guest')->group(function () {
+    Route::get('/login', [UserAuthController::class, 'showLogin'])->name('login');
+    Route::post('/login', [UserAuthController::class, 'login']);
+    Route::get('/register', [UserAuthController::class, 'showRegister'])->name('register');
+    Route::post('/register', [UserAuthController::class, 'register']);
+});
+Route::post('/logout', [UserAuthController::class, 'logout'])->name('logout')->middleware('auth');
+
+// Catálogo e features — protegido por auth
+Route::middleware('auth')->group(function () {
+    Route::get('/', [CatalogController::class, 'index'])->name('catalog.index');
+    Route::get('/series/{serie}', [CatalogController::class, 'serie'])->name('catalog.serie');
+    Route::get('/movies/{movie}', [CatalogController::class, 'movie'])->name('catalog.movie');
+    Route::post('/watched', [CatalogController::class, 'toggleWatched'])->name('catalog.watched');
+    Route::get('/video/episode/{episode}', [VideoController::class, 'stream'])->name('video.episode');
+    Route::get('/torrents/search', [TorrentController::class, 'search'])->name('torrents.search');
+    Route::get('/subtitles/search', [SubtitleController::class, 'search'])->name('subtitles.search');
+    Route::get('/subtitles/download', [SubtitleController::class, 'download'])->name('subtitles.download');
+
+    // Progresso de visualização
+    Route::get('/progress/{episode}', [WatchProgressController::class, 'show'])->name('progress.show');
+    Route::post('/progress/{episode}', [WatchProgressController::class, 'store'])->name('progress.store');
+});
 
 // Admin - autenticação
 Route::get('/admin/login', [AuthController::class, 'showLogin'])->name('admin.login');

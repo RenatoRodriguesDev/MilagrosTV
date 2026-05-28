@@ -4,9 +4,15 @@ services:
     ports:
       - "8080:80"
     volumes:
+      - ./app:/var/www/app
+      - ./config:/var/www/config
+      - ./resources:/var/www/resources
+      - ./routes:/var/www/routes
+      - ./public:/var/www/public
+      - ./database/migrations:/var/www/database/migrations
       - db_data:/var/www/database
       - storage_data:/var/www/storage/app
-      - /mnt/c/Users/Renato/Downloads/Series:/var/www/storage/app/videos
+      - ${VIDEOS_PATH}:/var/www/storage/app/videos
     env_file:
       - .env
     environment:

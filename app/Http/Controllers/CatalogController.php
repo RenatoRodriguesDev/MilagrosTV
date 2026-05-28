@@ -6,7 +6,9 @@ use App\Models\Episode;
 use App\Models\Movie;
 use App\Models\Serie;
 use App\Models\WatchedItem;
+use App\Models\WatchProgress;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 
 class CatalogController extends Controller
 {
@@ -30,7 +32,7 @@ class CatalogController extends Controller
             $series = $series->filter(fn($s) => in_array($genre, $s->localGenres()));
         }
 
-        $watchedIds = $this->getWatchedIds($request);
+        $watchedIds = $this->getWatchedIds();
         $allGenres  = $this->getAllGenres();
 
         return view('catalog.index', compact('movies', 'series', 'watchedIds', 'allGenres', 'search', 'genre', 'type'));
@@ -39,7 +41,17 @@ class CatalogController extends Controller
     public function serie(Serie $serie)
     {
         $episodes = $serie->episodes()->get()->groupBy('season');
-        return view('catalog.serie', compact('serie', 'episodes'));
+
+        $progress = [];
+        if (Auth::check()) {
+            $episodeIds = $serie->episodes()->pluck('id');
+            $progress = WatchProgress::where('user_id', Auth::id())
+                ->whereIn('episode_id', $episodeIds)
+                ->get()
+                ->keyBy('episode_id');
+        }
+
+        return view('catalog.serie', compact('serie', 'episodes', 'progress'));
     }
 
     public function movie(Movie $movie)
@@ -54,24 +66,22 @@ class CatalogController extends Controller
             'item_id'   => 'required|integer',
         ]);
 
-        $sessionId = $request->session()->getId();
-        $type      = $request->input('item_type');
-        $id        = $request->input('item_id');
+        $type = $request->input('item_type');
+        $id   = $request->input('item_id');
 
-        $existing = WatchedItem::where([
-            'session_id' => $sessionId,
-            'item_type'  => $type,
-            'item_id'    => $id,
-        ])->first();
+        $existing = WatchedItem::where('user_id', Auth::id())
+            ->where('item_type', $type)
+            ->where('item_id', $id)
+            ->first();
 
         if ($existing) {
             $existing->delete();
             $watched = false;
         } else {
             WatchedItem::create([
-                'session_id' => $sessionId,
-                'item_type'  => $type,
-                'item_id'    => $id,
+                'user_id'   => Auth::id(),
+                'item_type' => $type,
+                'item_id'   => $id,
             ]);
             $watched = true;
         }
@@ -79,10 +89,9 @@ class CatalogController extends Controller
         return response()->json(['watched' => $watched]);
     }
 
-    private function getWatchedIds(Request $request): array
+    private function getWatchedIds(): array
     {
-        $sessionId = $request->session()->getId();
-        return WatchedItem::where('session_id', $sessionId)
+        return WatchedItem::where('user_id', Auth::id())
             ->get()
             ->groupBy('item_type')
             ->map(fn($items) => $items->pluck('item_id')->toArray())

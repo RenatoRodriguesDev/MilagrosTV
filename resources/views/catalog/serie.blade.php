@@ -262,12 +262,30 @@
                     {{ $ep->title ?: __('serie.episode') . ' ' . $ep->episode }}
                 </p>
                 <p class="text-gray-500 text-xs mt-0.5">T{{ $ep->season }}E{{ $ep->episode }}</p>
+                @if($ep->video_path && isset($progress[$ep->id]) && $progress[$ep->id]->duration > 0)
+                @php $prog = $progress[$ep->id]; @endphp
+                <div class="mt-1.5 flex items-center gap-2">
+                    <div class="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
+                        <div class="h-full rounded-full {{ $prog->completed ? 'bg-gray-500' : 'bg-red-600' }}"
+                             style="width: {{ $prog->percent }}%"></div>
+                    </div>
+                    @if(!$prog->completed)
+                    <span class="text-gray-500 text-xs flex-shrink-0">{{ gmdate($prog->position >= 3600 ? 'H:i:s' : 'i:s', $prog->position) }}</span>
+                    @else
+                    <span class="text-gray-600 text-xs flex-shrink-0">✓</span>
+                    @endif
+                </div>
+                @endif
             </div>
 
             {{-- Action --}}
             @if($ep->video_path)
             <div class="flex-shrink-0 opacity-0 group-hover:opacity-100 transition flex items-center gap-2">
+                @if(isset($progress[$ep->id]) && !$progress[$ep->id]->completed && $progress[$ep->id]->position > 30)
+                <span class="text-orange-400 text-xs font-semibold">Continuar</span>
+                @else
                 <span class="text-red-500 text-sm font-bold">{{ __('serie.play') }}</span>
+                @endif
             </div>
             @else
             <button onclick="event.stopPropagation(); openTorrents('{{ addslashes($serie->original_title ?? $serie->title) }} S{{ str_pad($ep->season,2,'0',STR_PAD_LEFT) }}E{{ str_pad($ep->episode,2,'0',STR_PAD_LEFT) }}', 'series')"
@@ -317,8 +335,9 @@ const PLYR_CONFIG = {
         speed: 'Velocidade', normal: 'Normal',
     }
 };
-let episodePlyr = null;
-let torrentPlyr = null;
+let episodePlyr      = null;
+let torrentPlyr      = null;
+let currentEpisodeId = null;
 
 // Orientation lock: Android via API, iOS via CSS rotation
 function setupOrientationLock(player, onEnter, onExit) {
@@ -396,7 +415,9 @@ function showSeason(season) {
     tab.classList.add('bg-red-600', 'text-white', 'shadow-lg', 'shadow-red-600/20');
 }
 
-function playEpisode(episodeId, label, embedUrl = null) {
+async function playEpisode(episodeId, label, embedUrl = null) {
+    stopProgressSave();
+
     const iframe = document.getElementById('iframe-player');
     const modal  = document.getElementById('player-modal');
     const lbl    = document.getElementById('player-label');
@@ -404,18 +425,38 @@ function playEpisode(episodeId, label, embedUrl = null) {
     iframe.src = '';
     iframe.style.display = 'none';
 
+    currentEpisodeId = embedUrl ? null : episodeId;
+
     if (embedUrl) {
         if (episodePlyr) episodePlyr.pause();
         document.getElementById('video-player').style.display = 'none';
         iframe.src = embedUrl;
         iframe.style.display = 'block';
     } else {
+        // Fetch progress before setting source so 'ready' handler is registered in time
+        let resumePos = 0;
+        try {
+            const r = await fetch('/progress/' + episodeId);
+            const prog = await r.json();
+            if (prog.position > 30 && !prog.completed) resumePos = prog.position;
+        } catch (_) {}
+
         const player = getEpisodePlyr();
+        player.once('ready', () => {
+            if (resumePos > 0) {
+                player.media.addEventListener('loadedmetadata', () => {
+                    player.currentTime = resumePos;
+                    showResumeToast(resumePos);
+                }, { once: true });
+            }
+            player.play();
+            startProgressSave(player, episodeId);
+        });
+        player.on('ended', () => saveProgress(episodeId, Math.floor(player.duration || 0), Math.floor(player.duration || 0), true));
         player.source = {
             type: 'video',
             sources: [{ src: '/video/episode/' + episodeId, type: 'video/mp4' }]
         };
-        player.once('ready', () => player.play());
     }
 
     lbl.textContent = label;
@@ -423,10 +464,54 @@ function playEpisode(episodeId, label, embedUrl = null) {
     document.body.style.overflow = 'hidden';
 }
 
+let watchProgressInterval = null;
+
+function startProgressSave(player, episodeId) {
+    watchProgressInterval = setInterval(() => {
+        if (!player.paused && player.duration > 0) {
+            saveProgress(episodeId, Math.floor(player.currentTime), Math.floor(player.duration), false);
+        }
+    }, 15000);
+}
+
+function stopProgressSave() {
+    if (watchProgressInterval) { clearInterval(watchProgressInterval); watchProgressInterval = null; }
+}
+
+function saveProgress(episodeId, position, duration, completed) {
+    fetch('/progress/' + episodeId, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
+        body: JSON.stringify({ position, duration, completed }),
+        keepalive: true,
+    }).catch(() => {});
+}
+
+function showResumeToast(seconds) {
+    const existing = document.getElementById('resume-toast');
+    if (existing) existing.remove();
+    const t = document.createElement('div');
+    t.id = 'resume-toast';
+    const m = Math.floor(seconds / 60), s = seconds % 60;
+    t.textContent = `A continuar de ${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`;
+    t.style.cssText = 'position:absolute;top:12px;left:50%;transform:translateX(-50%);background:rgba(0,0,0,0.85);color:#fff;font-size:13px;padding:6px 14px;border-radius:20px;z-index:999;pointer-events:none;border:1px solid rgba(255,255,255,0.15);';
+    document.getElementById('player-modal').appendChild(t);
+    setTimeout(() => t.remove(), 3000);
+}
+
 function closePlayer() {
     const iframe = document.getElementById('iframe-player');
     const modal  = document.getElementById('player-modal');
-    if (episodePlyr) episodePlyr.pause();
+
+    if (episodePlyr && currentEpisodeId) {
+        const pos = Math.floor(episodePlyr.currentTime || 0);
+        const dur = Math.floor(episodePlyr.duration || 0);
+        if (pos > 5) saveProgress(currentEpisodeId, pos, dur, false);
+        episodePlyr.pause();
+    }
+    stopProgressSave();
+    currentEpisodeId = null;
+
     iframe.src = '';
     iframe.style.display = 'none';
     modal.classList.add('hidden');

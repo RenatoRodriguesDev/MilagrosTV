@@ -123,6 +123,36 @@
                         </a>
                     @endforeach
                 </div>
+
+                {{-- User menu --}}
+                @auth
+                <div class="relative" id="user-menu-wrap">
+                    <button onclick="document.getElementById('user-dropdown').classList.toggle('hidden')"
+                        class="flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg px-3 py-1.5 transition">
+                        <div class="w-6 h-6 rounded-full bg-red-600 flex items-center justify-center text-xs font-bold text-white">
+                            {{ strtoupper(substr(auth()->user()->name, 0, 1)) }}
+                        </div>
+                        <span class="hidden sm:block text-sm text-gray-300 max-w-[100px] truncate">{{ auth()->user()->name }}</span>
+                        <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+                    </button>
+                    <div id="user-dropdown" class="hidden absolute right-0 mt-2 w-44 bg-gray-900 border border-white/10 rounded-xl shadow-2xl py-1 z-50">
+                        <div class="px-4 py-2.5 border-b border-white/10">
+                            <p class="text-xs text-gray-400 truncate">{{ auth()->user()->email }}</p>
+                        </div>
+                        @if(auth()->user()->is_admin)
+                        <a href="{{ route('admin.movies.index') }}" class="block px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 transition">
+                            Administração
+                        </a>
+                        @endif
+                        <form method="POST" action="{{ route('logout') }}">
+                            @csrf
+                            <button type="submit" class="w-full text-left px-4 py-2.5 text-sm text-red-400 hover:bg-white/5 transition">
+                                Sair
+                            </button>
+                        </form>
+                    </div>
+                </div>
+                @endauth
             </div>
         </div>
     </nav>
@@ -199,6 +229,14 @@
         // Close language modal on backdrop click
         document.getElementById('lang-modal')?.addEventListener('click', function(e) {
             if (e.target === this) this.classList.add('hidden');
+        });
+
+        // Close user dropdown on outside click
+        document.addEventListener('click', function(e) {
+            const wrap = document.getElementById('user-menu-wrap');
+            if (wrap && !wrap.contains(e.target)) {
+                document.getElementById('user-dropdown')?.classList.add('hidden');
+            }
         });
     </script>
 </body>
