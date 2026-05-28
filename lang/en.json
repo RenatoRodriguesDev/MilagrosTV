@@ -56,6 +56,8 @@
     "subtitles.error": "Error searching subtitles.",
     "subtitles.lang_all": "All",
 
+    "catalog.continue_watching": "Continue watching",
+    "catalog.my_list": "My list",
     "player.continue": "Continue",
     "player.resuming_from": "Resuming from",
 

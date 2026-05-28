@@ -93,7 +93,7 @@
                     data-type="serie" data-id="{{ $serie->id }}"
                     class="flex items-center gap-2 border text-sm px-4 py-2 rounded-lg font-semibold transition
                         {{ $inWatchlist ? 'bg-yellow-600/20 border-yellow-600/40 text-yellow-400' : 'bg-white/10 border-white/20 text-white hover:bg-white/20' }}">
-                    {{ $inWatchlist ? '🔖 Na minha lista' : '＋ Minha lista' }}
+                    {{ $inWatchlist ? '🔖 ' . __('catalog.my_list') : '＋ ' . __('catalog.my_list') }}
                 </button>
             </div>
         </div>

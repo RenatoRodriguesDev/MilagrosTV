@@ -114,7 +114,7 @@
     <section class="mb-10 fade-in">
         <div class="flex items-center gap-3 mb-4">
             <span class="text-red-500 text-lg">▶</span>
-            <h2 class="text-lg font-bold text-white">Continuar a ver</h2>
+            <h2 class="text-lg font-bold text-white">{{ __('catalog.continue_watching') }}</h2>
         </div>
         <div class="flex gap-4 overflow-x-auto pb-2 scrollbar-none">
             @foreach($continueWatching as $prog)
@@ -152,7 +152,7 @@
     <section class="mb-10 fade-in">
         <div class="flex items-center gap-3 mb-4">
             <span class="text-yellow-500 text-lg">🔖</span>
-            <h2 class="text-lg font-bold text-white">A minha lista</h2>
+            <h2 class="text-lg font-bold text-white">{{ __('catalog.my_list') }}</h2>
         </div>
     </section>
     @endif
