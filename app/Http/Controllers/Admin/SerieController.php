@@ -46,6 +46,7 @@ class SerieController extends Controller
 
         if (!empty($data['tmdb_id'])) {
             $data['translations'] = $this->tmdb->fetchTranslations((int) $data['tmdb_id'], 'tv');
+            $data['trailer_url']  = $this->tmdb->getTrailerUrl((int) $data['tmdb_id'], 'tv');
         }
 
         Serie::create($data);
@@ -72,6 +73,9 @@ class SerieController extends Controller
 
         if (!empty($data['tmdb_id'])) {
             $data['translations'] = $this->tmdb->fetchTranslations((int) $data['tmdb_id'], 'tv');
+            if (!$serie->trailer_url) {
+                $data['trailer_url'] = $this->tmdb->getTrailerUrl((int) $data['tmdb_id'], 'tv');
+            }
         }
 
         $serie->update($data);

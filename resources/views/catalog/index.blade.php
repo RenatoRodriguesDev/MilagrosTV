@@ -86,6 +86,16 @@
                 @endforeach
             </div>
 
+            {{-- Sort --}}
+            <select name="sort" onchange="this.form.submit()"
+                class="bg-white/5 border border-white/10 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-500/50 transition">
+                <option value="title"  @selected($sort==='title')  class="bg-gray-900">A-Z</option>
+                <option value="year"   @selected($sort==='year')   class="bg-gray-900">{{ __('catalog.sort_year') ?? 'Ano' }}</option>
+                <option value="rating" @selected($sort==='rating') class="bg-gray-900">★ {{ __('catalog.sort_rating') ?? 'Nota' }}</option>
+                <option value="added"  @selected($sort==='added')  class="bg-gray-900">{{ __('catalog.sort_added') ?? 'Recentes' }}</option>
+            </select>
+            <input type="hidden" name="order" value="{{ $order }}">
+
             <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition">
                 {{ __('catalog.filter') }}
             </button>
@@ -98,6 +108,54 @@
 
 {{-- Content --}}
 <div class="max-w-7xl mx-auto px-6 py-8 pb-16">
+
+    {{-- Continuar a ver --}}
+    @if($continueWatching->isNotEmpty() && !$search && !$genre)
+    <section class="mb-10 fade-in">
+        <div class="flex items-center gap-3 mb-4">
+            <span class="text-red-500 text-lg">▶</span>
+            <h2 class="text-lg font-bold text-white">Continuar a ver</h2>
+        </div>
+        <div class="flex gap-4 overflow-x-auto pb-2 scrollbar-none">
+            @foreach($continueWatching as $prog)
+            @php $ep = $prog->episode; $serie = $ep->serie; @endphp
+            <a href="{{ route('catalog.serie', $serie) }}"
+               class="flex-shrink-0 w-44 group relative rounded-xl overflow-hidden bg-gray-800 border border-white/10 hover:border-red-500/50 transition">
+                @if($serie->poster_url)
+                <img src="{{ $serie->poster_url }}" class="w-full h-64 object-cover">
+                @else
+                <div class="w-full h-64 bg-gray-700 flex items-center justify-center text-3xl">📺</div>
+                @endif
+                {{-- Progress bar --}}
+                <div class="absolute bottom-0 left-0 right-0 h-1 bg-black/60">
+                    <div class="h-full bg-red-500" style="width: {{ $prog->percent }}%"></div>
+                </div>
+                {{-- Overlay --}}
+                <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent flex flex-col justify-end p-3">
+                    <p class="text-white text-xs font-semibold truncate">{{ $serie->localTitle() }}</p>
+                    <p class="text-gray-400 text-[10px]">T{{ $ep->season }}E{{ $ep->episode }}{{ $ep->title ? ' · '.Str::limit($ep->title, 20) : '' }}</p>
+                    <p class="text-red-400 text-[10px] font-medium mt-0.5">{{ gmdate($prog->position >= 3600 ? 'H:i:s' : 'i:s', $prog->position) }} restantes</p>
+                </div>
+                <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                    <div class="w-12 h-12 rounded-full bg-red-600/90 flex items-center justify-center">
+                        <svg class="w-5 h-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                    </div>
+                </div>
+            </a>
+            @endforeach
+        </div>
+    </section>
+    @endif
+
+    {{-- Watchlist --}}
+    @if(isset($watchlistSection) && $watchlistSection->isNotEmpty() && !$search && !$genre)
+    <section class="mb-10 fade-in">
+        <div class="flex items-center gap-3 mb-4">
+            <span class="text-yellow-500 text-lg">🔖</span>
+            <h2 class="text-lg font-bold text-white">A minha lista</h2>
+        </div>
+    </section>
+    @endif
 
     @if($type !== 'series' && $movies->count() > 0)
     <section class="mb-12 fade-in">
@@ -147,7 +205,27 @@
 
 @push('scripts')
 <script>
-const watchedIds = @json($watchedIds);
+const watchedIds    = @json($watchedIds);
+const watchlistIds  = @json($watchlistIds);
+
+async function toggleWatchlist(btn, type, id) {
+    const res = await fetch('{{ route("watchlist.toggle") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
+        body: JSON.stringify({ item_type: type, item_id: id }),
+    });
+    const data = await res.json();
+    if (data.in_watchlist) {
+        btn.textContent = '🔖';
+        btn.title = 'Remover da lista';
+        if (!watchlistIds[type]) watchlistIds[type] = [];
+        watchlistIds[type].push(id);
+    } else {
+        btn.textContent = '＋';
+        btn.title = 'Adicionar à lista';
+        watchlistIds[type] = (watchlistIds[type] || []).filter(i => i !== id);
+    }
+}
 
 async function toggleWatched(btn, type, id) {
     const res = await fetch('{{ route("catalog.watched") }}', {

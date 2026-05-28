@@ -69,13 +69,44 @@
             <p class="text-gray-300 text-sm leading-relaxed max-w-2xl line-clamp-3 mb-4">{{ $movie->localSynopsis() }}</p>
             @endif
 
-            <button onclick="openTorrents('{{ addslashes($movie->original_title ?? $movie->title) }}', 'movie')"
-                class="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
-                {{ __('torrent.find_streams') }}
-            </button>
+            <div class="flex flex-wrap gap-2">
+                <button onclick="openTorrents('{{ addslashes($movie->original_title ?? $movie->title) }}', 'movie')"
+                    class="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
+                    {{ __('torrent.find_streams') }}
+                </button>
+
+                @if($movie->trailer_url)
+                <button id="trailer-btn"
+                    class="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
+                    🎬 Trailer
+                </button>
+                @endif
+
+                <button onclick="toggleWatchlistDetail(this)"
+                    data-type="movie" data-id="{{ $movie->id }}"
+                    class="flex items-center gap-2 border text-sm px-4 py-2 rounded-lg font-semibold transition
+                        {{ $inWatchlist ? 'bg-yellow-600/20 border-yellow-600/40 text-yellow-400' : 'bg-white/10 border-white/20 text-white hover:bg-white/20' }}">
+                    {{ $inWatchlist ? '🔖 Na minha lista' : '＋ Minha lista' }}
+                </button>
+            </div>
         </div>
     </div>
 </div>
+
+{{-- Trailer modal --}}
+@if($movie->trailer_url)
+<div id="trailer-modal" class="hidden fixed inset-0 z-[9998] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.95);">
+    <div class="w-full max-w-3xl">
+        <div class="flex justify-end mb-2">
+            <button onclick="document.getElementById('trailer-modal').classList.add('hidden'); document.getElementById('trailer-frame').src=''"
+                class="text-gray-400 hover:text-white text-sm">✕ Fechar</button>
+        </div>
+        <div class="aspect-video rounded-xl overflow-hidden bg-black">
+            <iframe id="trailer-frame" src="" allow="autoplay; fullscreen" allowfullscreen class="w-full h-full"></iframe>
+        </div>
+    </div>
+</div>
+@endif
 
 {{-- Torrent modal --}}
 <div id="torrent-modal" class="hidden fixed inset-0 z-[999] flex items-center justify-center p-4" style="background:rgba(0,0,0,0.92);">
@@ -198,6 +229,33 @@
 .sub-ctrl-btn.active { background: rgba(255,255,255,0.2); color: #fff; }
 </style>
 <script>
+// Watchlist toggle (detail page)
+async function toggleWatchlistDetail(btn) {
+    const type = btn.dataset.type, id = parseInt(btn.dataset.id);
+    const res  = await fetch('{{ route("watchlist.toggle") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
+        body: JSON.stringify({ item_type: type, item_id: id }),
+    });
+    const data = await res.json();
+    if (data.in_watchlist) {
+        btn.textContent = '🔖 Na minha lista';
+        btn.className = btn.className.replace('bg-white/10 border-white/20 text-white hover:bg-white/20', 'bg-yellow-600/20 border-yellow-600/40 text-yellow-400');
+    } else {
+        btn.textContent = '＋ Minha lista';
+        btn.className = btn.className.replace('bg-yellow-600/20 border-yellow-600/40 text-yellow-400', 'bg-white/10 border-white/20 text-white hover:bg-white/20');
+    }
+}
+
+// Trailer
+document.getElementById('trailer-btn')?.addEventListener('click', function() {
+    document.getElementById('trailer-frame').src = '{{ $movie->trailer_url ?? '' }}';
+    document.getElementById('trailer-modal').classList.remove('hidden');
+});
+document.getElementById('trailer-modal')?.addEventListener('click', function(e) {
+    if (e.target === this) { this.classList.add('hidden'); document.getElementById('trailer-frame').src = ''; }
+});
+
 // ── Plyr ──────────────────────────────────────────────────────────────────────
 const PLYR_CONFIG = {
     controls: ['play-large', 'play', 'rewind', 'fast-forward', 'progress', 'current-time', 'duration', 'mute', 'volume', 'captions', 'settings', 'fullscreen'],

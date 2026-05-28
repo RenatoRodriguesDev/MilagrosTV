@@ -142,4 +142,19 @@ class TmdbService
     {
         return $path ? $this->imageBase . $path : null;
     }
+
+    public function getTrailerUrl(int $tmdbId, string $type = 'movie'): ?string
+    {
+        $endpoint = $type === 'movie' ? "/movie/{$tmdbId}/videos" : "/tv/{$tmdbId}/videos";
+        $data = $this->get($endpoint);
+        $videos = $data['results'] ?? [];
+
+        $trailer = collect($videos)
+            ->where('site', 'YouTube')
+            ->whereIn('type', ['Trailer', 'Teaser'])
+            ->sortByDesc(fn($v) => $v['type'] === 'Trailer' ? 1 : 0)
+            ->first();
+
+        return $trailer ? 'https://www.youtube.com/embed/' . $trailer['key'] . '?autoplay=1' : null;
+    }
 }

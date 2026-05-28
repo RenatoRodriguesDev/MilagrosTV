@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
 use App\Models\User;
+use App\Models\WatchProgress;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -19,6 +20,16 @@ class UserController extends Controller
             ->get();
 
         return view('admin.users.index', compact('users', 'search'));
+    }
+
+    public function activity(User $user)
+    {
+        $progress = WatchProgress::with(['episode.serie'])
+            ->where('user_id', $user->id)
+            ->latest('updated_at')
+            ->get();
+
+        return view('admin.users.activity', compact('user', 'progress'));
     }
 
     public function toggleAdmin(User $user)

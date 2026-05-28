@@ -14,6 +14,9 @@
     "catalog.clear": "Clear",
     "catalog.no_results": "No results found.",
     "catalog.no_results_emoji": "🔍",
+    "catalog.sort_year": "Year",
+    "catalog.sort_rating": "Rating",
+    "catalog.sort_added": "Recent",
 
     "card.seasons": "seas.",
     "card.mark_watched": "Mark as watched",

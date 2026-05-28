@@ -1,5 +1,6 @@
 @php
-    $watched = isset($watchedIds[$type]) && in_array($item->id, $watchedIds[$type]);
+    $watched     = isset($watchedIds[$type])   && in_array($item->id, $watchedIds[$type]);
+    $inWatchlist = isset($watchlistIds[$type]) && in_array($item->id, $watchlistIds[$type]);
 @endphp
 
 <div class="card-item relative cursor-pointer group"
@@ -49,11 +50,19 @@
             @if($item->synopsis)
             <p class="text-xs text-gray-200 line-clamp-2 mb-2 leading-relaxed">{{ $item->localSynopsis() }}</p>
             @endif
-            <button
-                onclick="event.stopPropagation(); toggleWatched(this, '{{ $type }}', {{ $item->id }})"
-                class="w-full text-xs py-1.5 rounded-lg font-semibold transition {{ $watched ? 'bg-green-600' : 'bg-white/10' }} backdrop-blur-sm hover:opacity-90 text-white border border-white/10">
-                {{ $watched ? __('card.watched') : __('card.mark_watched') }}
-            </button>
+            <div class="flex gap-1.5">
+                <button
+                    onclick="event.stopPropagation(); toggleWatched(this, '{{ $type }}', {{ $item->id }})"
+                    class="flex-1 text-xs py-1.5 rounded-lg font-semibold transition {{ $watched ? 'bg-green-600' : 'bg-white/10' }} backdrop-blur-sm hover:opacity-90 text-white border border-white/10">
+                    {{ $watched ? __('card.watched') : __('card.mark_watched') }}
+                </button>
+                <button
+                    onclick="event.stopPropagation(); toggleWatchlist(this, '{{ $type }}', {{ $item->id }})"
+                    title="{{ $inWatchlist ? 'Remover da lista' : 'Adicionar à lista' }}"
+                    class="text-xs px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/10 transition">
+                    {{ $inWatchlist ? '🔖' : '＋' }}
+                </button>
+            </div>
         </div>
     </div>
 

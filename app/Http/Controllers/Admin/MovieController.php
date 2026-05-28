@@ -48,6 +48,7 @@ class MovieController extends Controller
 
         if (!empty($data['tmdb_id'])) {
             $data['translations'] = $this->tmdb->fetchTranslations((int) $data['tmdb_id'], 'movie');
+            $data['trailer_url']  = $this->tmdb->getTrailerUrl((int) $data['tmdb_id'], 'movie');
         }
 
         Movie::create($data);
@@ -73,6 +74,9 @@ class MovieController extends Controller
 
         if (!empty($data['tmdb_id'])) {
             $data['translations'] = $this->tmdb->fetchTranslations((int) $data['tmdb_id'], 'movie');
+            if (!$movie->trailer_url) {
+                $data['trailer_url'] = $this->tmdb->getTrailerUrl((int) $data['tmdb_id'], 'movie');
+            }
         }
 
         $movie->update($data);

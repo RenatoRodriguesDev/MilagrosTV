@@ -112,7 +112,31 @@
             </div>
 
             {{-- Right side --}}
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-2">
+                {{-- Search button --}}
+                @auth
+                <button onclick="toggleSearch()" class="text-gray-400 hover:text-white transition p-1.5 rounded-lg hover:bg-white/10">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                </button>
+
+                {{-- Notifications --}}
+                <div class="relative" id="notif-wrap">
+                    <button onclick="toggleNotifications()" class="relative text-gray-400 hover:text-white transition p-1.5 rounded-lg hover:bg-white/10">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+                        <span id="notif-badge" class="hidden absolute -top-0.5 -right-0.5 w-4 h-4 bg-red-600 text-white text-[9px] font-bold rounded-full flex items-center justify-center"></span>
+                    </button>
+                    <div id="notif-dropdown" class="hidden absolute right-0 mt-2 w-80 bg-gray-900 border border-white/10 rounded-2xl shadow-2xl z-50 overflow-hidden">
+                        <div class="flex items-center justify-between px-4 py-3 border-b border-white/10">
+                            <p class="text-sm font-semibold">Notificações</p>
+                            <button onclick="markNotificationsRead()" class="text-xs text-gray-500 hover:text-white">Marcar como lidas</button>
+                        </div>
+                        <div id="notif-list" class="max-h-80 overflow-y-auto">
+                            <p class="text-center text-gray-600 py-8 text-sm">Sem notificações.</p>
+                        </div>
+                    </div>
+                </div>
+                @endauth
+
                 {{-- Language switcher (hidden on mobile, shown in bottom nav instead) --}}
                 <div class="hidden sm:flex items-center gap-1.5 bg-white/5 rounded-lg px-2 py-1.5 border border-white/10">
                     @foreach(['pt' => 'pt', 'es' => 'es', 'en' => 'gb'] as $lang => $flag)
@@ -211,6 +235,21 @@
         </div>
     </div>
 
+    {{-- Search overlay --}}
+    @auth
+    <div id="search-overlay" class="hidden fixed inset-0 z-[9999] bg-black/80 backdrop-blur-sm flex items-start justify-center pt-20 px-4">
+        <div class="w-full max-w-2xl">
+            <div class="relative">
+                <svg class="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+                <input id="global-search-input" type="text" placeholder="Pesquisar filmes, séries, episódios..."
+                    class="w-full bg-gray-900 border border-white/20 rounded-2xl pl-12 pr-4 py-4 text-white text-lg focus:outline-none focus:border-red-500">
+                <button onclick="closeSearch()" class="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white text-xs">ESC</button>
+            </div>
+            <div id="global-search-results" class="mt-3 bg-gray-900 border border-white/10 rounded-2xl overflow-hidden hidden"></div>
+        </div>
+    </div>
+    @endauth
+
     <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
     @stack('scripts')
 
@@ -237,7 +276,93 @@
             if (wrap && !wrap.contains(e.target)) {
                 document.getElementById('user-dropdown')?.classList.add('hidden');
             }
+            const notifWrap = document.getElementById('notif-wrap');
+            if (notifWrap && !notifWrap.contains(e.target)) {
+                document.getElementById('notif-dropdown')?.classList.add('hidden');
+            }
         });
+
+        @auth
+        // Search overlay
+        function toggleSearch() {
+            const overlay = document.getElementById('search-overlay');
+            overlay.classList.toggle('hidden');
+            if (!overlay.classList.contains('hidden')) {
+                document.getElementById('global-search-input').focus();
+                document.body.style.overflow = 'hidden';
+            } else {
+                document.body.style.overflow = '';
+            }
+        }
+        function closeSearch() {
+            document.getElementById('search-overlay').classList.add('hidden');
+            document.body.style.overflow = '';
+        }
+        document.getElementById('search-overlay')?.addEventListener('click', function(e) {
+            if (e.target === this) closeSearch();
+        });
+        document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSearch(); });
+
+        const gsi = document.getElementById('global-search-input');
+        const gsr = document.getElementById('global-search-results');
+        if (gsi) gsi.addEventListener('input', function() {
+            clearTimeout(this._t);
+            this._t = setTimeout(async () => {
+                const q = this.value.trim();
+                if (q.length < 2) { gsr.classList.add('hidden'); return; }
+                const res  = await fetch(`/search?q=${encodeURIComponent(q)}`);
+                const data = await res.json();
+                if (!data.length) { gsr.innerHTML = '<p class="text-center text-gray-600 py-8 text-sm">Sem resultados.</p>'; gsr.classList.remove('hidden'); return; }
+                const typeLabel = { movie: 'Filme', serie: 'Série', episode: 'Episódio' };
+                gsr.innerHTML = data.map(r => `
+                    <a href="${r.url}" onclick="closeSearch()" class="flex items-center gap-3 px-4 py-3 hover:bg-white/5 transition border-b border-white/[.05] last:border-0">
+                        ${r.poster ? `<img src="${r.poster}" style="width:32px;height:46px;object-fit:cover;border-radius:4px;flex-shrink:0">` : '<div style="width:32px;height:46px;background:#374151;border-radius:4px;flex-shrink:0"></div>'}
+                        <div class="flex-1 min-w-0">
+                            <p class="text-white text-sm font-medium truncate">${r.title}</p>
+                            <p class="text-gray-500 text-xs">${typeLabel[r.type]}${r.year ? ' · '+r.year : ''}</p>
+                        </div>
+                    </a>`).join('');
+                gsr.classList.remove('hidden');
+            }, 300);
+        });
+
+        // Notifications
+        async function loadNotifications() {
+            const res  = await fetch('/notifications');
+            const data = await res.json();
+            const list = document.getElementById('notif-list');
+            if (!data.length) { list.innerHTML = '<p class="text-center text-gray-600 py-8 text-sm">Sem notificações.</p>'; return; }
+            list.innerHTML = data.map(n => `
+                <a href="${n.url || '#'}" class="flex items-start gap-3 px-4 py-3 hover:bg-white/5 transition border-b border-white/[.05] last:border-0 ${n.read ? 'opacity-60' : ''}">
+                    <div class="w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${n.read ? 'bg-gray-600' : 'bg-red-500'}"></div>
+                    <div class="flex-1 min-w-0">
+                        <p class="text-sm font-medium text-white truncate">${n.title}</p>
+                        <p class="text-xs text-gray-400 mt-0.5">${n.message}</p>
+                    </div>
+                </a>`).join('');
+        }
+
+        async function toggleNotifications() {
+            const dd = document.getElementById('notif-dropdown');
+            dd.classList.toggle('hidden');
+            if (!dd.classList.contains('hidden')) loadNotifications();
+        }
+
+        async function markNotificationsRead() {
+            await fetch('/notifications/read', { method: 'POST', headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content } });
+            document.getElementById('notif-badge').classList.add('hidden');
+            loadNotifications();
+        }
+
+        // Load unread count on page load
+        fetch('/notifications/count').then(r => r.json()).then(d => {
+            if (d.count > 0) {
+                const badge = document.getElementById('notif-badge');
+                badge.textContent = d.count > 9 ? '9+' : d.count;
+                badge.classList.remove('hidden');
+            }
+        }).catch(() => {});
+        @endauth
     </script>
 </body>
 </html>

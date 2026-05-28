@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Episode;
 use App\Models\Serie;
+use App\Models\UserNotification;
 use App\Services\TmdbService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\File;
@@ -20,10 +21,26 @@ class EpisodeController extends Controller
             'video_path' => 'nullable|string|max:500',
         ]);
 
+        $isNew = !Episode::where([
+            'serie_id' => $serie->id,
+            'season'   => $data['season'],
+            'episode'  => $data['episode'],
+        ])->exists();
+
         Episode::updateOrCreate(
             ['serie_id' => $serie->id, 'season' => $data['season'], 'episode' => $data['episode']],
             ['title' => $data['title'] ?? null, 'video_path' => $data['video_path'] ?? null]
         );
+
+        if ($isNew && !empty($data['video_path'])) {
+            $label = $data['title'] ?? "T{$data['season']}E{$data['episode']}";
+            UserNotification::notifyAll(
+                'new_episode',
+                $serie->title,
+                "Novo episódio disponível: {$label}",
+                route('catalog.serie', $serie)
+            );
+        }
 
         return back()->with('success', 'Episódio guardado.');
     }

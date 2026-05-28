@@ -27,6 +27,16 @@ class User extends Authenticatable
         return $this->hasMany(\App\Models\WatchProgress::class);
     }
 
+    public function watchlist()
+    {
+        return $this->hasMany(\App\Models\Watchlist::class);
+    }
+
+    public function notifications()
+    {
+        return $this->hasMany(\App\Models\UserNotification::class);
+    }
+
     protected function casts(): array
     {
         return [

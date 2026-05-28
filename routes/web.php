@@ -1,10 +1,13 @@
 <?php
 
 use App\Http\Controllers\CatalogController;
+use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SubtitleController;
 use App\Http\Controllers\TorrentController;
 use App\Http\Controllers\UserAuthController;
 use App\Http\Controllers\VideoController;
+use App\Http\Controllers\WatchlistController;
 use App\Http\Controllers\WatchProgressController;
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\DashboardController;
@@ -13,6 +16,9 @@ use App\Http\Controllers\Admin\MovieController;
 use App\Http\Controllers\Admin\SerieController;
 use App\Http\Controllers\Admin\UserController;
 use Illuminate\Support\Facades\Route;
+
+// Pesquisa global (pública dentro do auth)
+Route::get('/search', [SearchController::class, 'search'])->name('search')->middleware('auth');
 
 // Idioma (público)
 Route::get('/locale/{lang}', function (string $lang) {
@@ -45,6 +51,14 @@ Route::middleware('auth')->group(function () {
     // Progresso de visualização
     Route::get('/progress/{episode}', [WatchProgressController::class, 'show'])->name('progress.show');
     Route::post('/progress/{episode}', [WatchProgressController::class, 'store'])->name('progress.store');
+
+    // Watchlist
+    Route::post('/watchlist', [WatchlistController::class, 'toggle'])->name('watchlist.toggle');
+
+    // Notificações
+    Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
+    Route::post('/notifications/read', [NotificationController::class, 'markRead'])->name('notifications.read');
+    Route::get('/notifications/count', [NotificationController::class, 'unreadCount'])->name('notifications.count');
 });
 
 // Admin - autenticação
@@ -59,8 +73,12 @@ Route::prefix('admin')->name('admin.')->middleware(\App\Http\Middleware\AdminAut
 
     // Utilizadores
     Route::get('/users', [UserController::class, 'index'])->name('users.index');
+    Route::get('/users/{user}/activity', [UserController::class, 'activity'])->name('users.activity');
     Route::post('/users/{user}/toggle-admin', [UserController::class, 'toggleAdmin'])->name('users.toggle-admin');
     Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
+
+    // Detecção automática de ficheiros
+    Route::get('/files/scan', [\App\Http\Controllers\Admin\FileDetectionController::class, 'scan'])->name('files.scan');
 
     // Filmes
     Route::get('/movies', [MovieController::class, 'index'])->name('movies.index');
