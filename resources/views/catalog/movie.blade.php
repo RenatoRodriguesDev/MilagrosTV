@@ -71,7 +71,7 @@
 
             <button onclick="openTorrents('{{ addslashes($movie->original_title ?? $movie->title) }}', 'movie')"
                 class="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
-                🧲 Encontrar streams
+                {{ __('torrent.find_streams') }}
             </button>
         </div>
     </div>
@@ -82,7 +82,7 @@
     <div class="w-full max-w-3xl max-h-[85vh] flex flex-col bg-gray-900 rounded-2xl border border-white/10 shadow-2xl">
         <div class="flex items-center justify-between px-6 py-4 border-b border-white/10 flex-shrink-0">
             <div>
-                <h3 class="font-bold text-white">🧲 Encontrar streams</h3>
+                <h3 class="font-bold text-white">{{ __('torrent.find_streams') }}</h3>
                 <p id="torrent-query-label" class="text-gray-400 text-xs mt-0.5"></p>
             </div>
             <button onclick="closeTorrents()" class="text-gray-500 hover:text-white transition text-xl">✕</button>
@@ -91,15 +91,15 @@
             <div class="flex gap-2">
                 <input type="text" id="torrent-search-input"
                     class="flex-1 bg-white/5 border border-white/10 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-500"
-                    placeholder="Pesquisar...">
+                    placeholder="{{ __('catalog.search_placeholder') }}">
                 <button onclick="doTorrentSearch()" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
-                    Pesquisar
+                    {{ __('common.search') }}
                 </button>
             </div>
             <div class="flex gap-2 mt-2 flex-wrap">
                 <button onclick="setLangFilter(null)" id="filter-all"
                     class="lang-filter px-3 py-1 rounded-full text-xs font-semibold transition bg-white/20 text-white">
-                    Todos
+                    {{ __('subtitles.lang_all') }}
                 </button>
                 <button onclick="setLangFilter('DUAL')" id="filter-DUAL"
                     class="lang-filter px-3 py-1 rounded-full text-xs font-semibold transition bg-white/5 text-gray-400 hover:text-white">
@@ -130,10 +130,10 @@
                     <video id="wt-video" controls playsinline class="w-full" style="max-height:300px;"></video>
                 </div>
                 <div class="flex items-center justify-between mt-2 text-xs px-1">
-                    <span id="wt-status" class="text-gray-400">A carregar...</span>
+                    <span id="wt-status" class="text-gray-400">{{ __('common.loading') }}</span>
                     <div class="flex items-center gap-3">
-                        <button onclick="toggleSubSearch()" class="text-gray-500 hover:text-blue-400 transition">🔤 Legendas</button>
-                        <button onclick="stopWebTorrent()" class="text-gray-600 hover:text-red-400 transition">✕ Parar</button>
+                        <button onclick="toggleSubSearch()" class="text-gray-500 hover:text-blue-400 transition">{{ __('subtitles.label') }}</button>
+                        <button onclick="stopWebTorrent()" class="text-gray-600 hover:text-red-400 transition">{{ __('torrent.stop') }}</button>
                     </div>
                 </div>
                 <div class="w-full bg-white/5 rounded-full h-1 mt-1">
@@ -142,7 +142,7 @@
                 {{-- Subtitle controls (offset + style) --}}
                 <div id="sub-offset-bar" class="hidden flex-col gap-1.5 mt-2 px-1">
                     <div class="flex items-center gap-1.5 flex-wrap">
-                        <span class="text-gray-500 text-xs shrink-0">Sync:</span>
+                        <span class="text-gray-500 text-xs shrink-0">{{ __('subtitles.sync') }}</span>
                         <button onclick="adjustSubOffset(-5)"   class="sub-ctrl-btn">-5s</button>
                         <button onclick="adjustSubOffset(-1)"   class="sub-ctrl-btn">-1s</button>
                         <button onclick="adjustSubOffset(-0.5)" class="sub-ctrl-btn">-0.5s</button>
@@ -157,7 +157,7 @@
                         <button onclick="adjustSubSize(-2)"  class="sub-ctrl-btn">A−</button>
                         <span id="sub-size-display" class="text-white text-xs font-mono w-8 text-center shrink-0">18</span>
                         <button onclick="adjustSubSize(2)"   class="sub-ctrl-btn">A+</button>
-                        <button onclick="toggleSubBg()" id="sub-bg-btn" class="sub-ctrl-btn ml-2">⬛ Fundo</button>
+                        <button onclick="toggleSubBg()" id="sub-bg-btn" class="sub-ctrl-btn ml-2">{{ __('subtitles.background') }}</button>
                     </div>
                 </div>
                 {{-- Subtitle search panel --}}
@@ -166,21 +166,21 @@
                         <input type="text" id="sub-query" placeholder="Título do filme..."
                             class="flex-1 bg-white/5 border border-white/10 text-white rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:border-blue-500">
                         <button onclick="searchSubtitles()" class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg text-xs font-semibold transition">
-                            Pesquisar
+                            {{ __('common.search') }}
                         </button>
                     </div>
                     <div class="flex gap-1.5 mb-2">
                         <button onclick="setSubLang('PT')" id="sublang-PT" class="sub-lang-btn px-2.5 py-1 rounded-full text-xs font-semibold transition bg-white/20 text-white">🇵🇹 PT</button>
                         <button onclick="setSubLang('ES')" id="sublang-ES" class="sub-lang-btn px-2.5 py-1 rounded-full text-xs font-semibold transition bg-white/5 text-gray-400">🇪🇸 ES</button>
                         <button onclick="setSubLang('EN')" id="sublang-EN" class="sub-lang-btn px-2.5 py-1 rounded-full text-xs font-semibold transition bg-white/5 text-gray-400">🇬🇧 EN</button>
-                        <button onclick="setSubLang('PT,ES,EN')" id="sublang-PT,ES,EN" class="sub-lang-btn px-2.5 py-1 rounded-full text-xs font-semibold transition bg-white/5 text-gray-400">Todos</button>
+                        <button onclick="setSubLang('PT,ES,EN')" id="sublang-PT,ES,EN" class="sub-lang-btn px-2.5 py-1 rounded-full text-xs font-semibold transition bg-white/5 text-gray-400">{{ __('subtitles.lang_all') }}</button>
                     </div>
                     <div id="sub-results" class="space-y-1 max-h-40 overflow-y-auto"></div>
                     <p id="sub-status" class="text-xs text-gray-500 mt-1"></p>
                 </div>
             </div>
             <div id="torrent-list" class="space-y-2"></div>
-            <p id="torrent-empty" class="hidden text-center text-gray-500 py-12 text-sm">Nenhum resultado encontrado.</p>
+            <p id="torrent-empty" class="hidden text-center text-gray-500 py-12 text-sm">{{ __('torrent.no_results') }}</p>
         </div>
     </div>
 </div>
@@ -208,12 +208,12 @@ const PLYR_CONFIG = {
     tooltips: { controls: false, seek: true },
     fullscreen: { enabled: true, fallback: true, iosNative: false },
     i18n: {
-        play: 'Reproduzir', pause: 'Pausar',
-        rewind: 'Recuar 10s', fastForward: 'Avançar 10s',
-        mute: 'Sem som', volume: 'Volume',
-        captions: 'Legendas', settings: 'Definições',
-        enterFullscreen: 'Ecrã inteiro', exitFullscreen: 'Sair',
-        speed: 'Velocidade', normal: 'Normal',
+        play: '{{ __('plyr.play') }}', pause: '{{ __('plyr.pause') }}',
+        rewind: '{{ __('plyr.rewind') }}', fastForward: '{{ __('plyr.fast_forward') }}',
+        mute: '{{ __('plyr.mute') }}', volume: '{{ __('plyr.volume') }}',
+        captions: '{{ __('plyr.captions') }}', settings: '{{ __('plyr.settings') }}',
+        enterFullscreen: '{{ __('plyr.fullscreen_enter') }}', exitFullscreen: '{{ __('plyr.fullscreen_exit') }}',
+        speed: '{{ __('plyr.speed') }}', normal: '{{ __('plyr.normal') }}',
     }
 };
 let torrentPlyr = null;
@@ -321,7 +321,7 @@ function renderResults(results) {
     count.textContent = filtered.length + ' resultado' + (filtered.length !== 1 ? 's' : '');
     if (!filtered.length) {
         list.innerHTML = '';
-        empty.textContent = activeLangFilter ? `Sem resultados "${activeLangFilter}". Tenta outro filtro.` : 'Nenhum resultado encontrado.';
+        empty.textContent = activeLangFilter ? '{{ __('torrent.no_results_filter') }}' : '{{ __('torrent.no_results') }}';
         empty.classList.remove('hidden');
         return;
     }
@@ -346,7 +346,7 @@ function renderResults(results) {
             ${playId ? `
             <button onclick="playWebTorrent(${i})"
                 class="flex-shrink-0 bg-red-600 hover:bg-red-700 text-white text-xs px-3 py-1.5 rounded-lg font-semibold transition">
-                ▶ Reproduzir
+                {{ __('torrent.play') }}
             </button>
             ${r.magnet ? `<a href="${r.magnet}" class="flex-shrink-0 bg-white/10 hover:bg-white/20 text-white text-xs px-3 py-1.5 rounded-lg transition">🧲</a>` : ''}
             ` : ''}
@@ -518,12 +518,12 @@ async function searchSubtitles() {
         allSubResults = subs;
         if (!subs.length) {
             if (activeSublang !== 'PT,ES,EN') {
-                status.textContent = `Sem resultados em ${activeSublang}. A pesquisar em todos os idiomas...`;
+                status.textContent = '{{ __('subtitles.no_results') }}';
                 setSubLang('PT,ES,EN');
                 await searchSubtitles();
                 return;
             }
-            status.textContent = 'Sem resultados.';
+            status.textContent = '{{ __('subtitles.no_results') }}';
             return;
         }
         renderSubResults(subs);

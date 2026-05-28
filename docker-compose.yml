@@ -9,6 +9,7 @@ services:
       - ./resources:/var/www/resources
       - ./routes:/var/www/routes
       - ./public:/var/www/public
+      - ./lang:/var/www/lang
       - ./database/migrations:/var/www/database/migrations
       - db_data:/var/www/database
       - storage_data:/var/www/storage/app

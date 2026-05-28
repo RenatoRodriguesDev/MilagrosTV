@@ -25,5 +25,47 @@
     "serie.episode": "Episódio",
     "serie.play": "▶ Reproduzir",
     "serie.no_episodes": "Ainda não há episódios disponíveis.",
-    "serie.no_video": "Sem vídeo"
+    "serie.no_video": "Sem vídeo",
+
+    "movie.back": "← Filmes",
+
+    "common.search": "Pesquisar",
+    "common.close": "✕ Fechar",
+    "common.cancel": "Cancelar",
+    "common.loading": "A carregar...",
+
+    "torrent.find_streams": "🧲 Encontrar streams",
+    "torrent.find": "Encontrar",
+    "torrent.stop": "✕ Parar",
+    "torrent.play": "▶ Reproduzir",
+    "torrent.no_results": "Nenhum resultado encontrado.",
+    "torrent.no_results_filter": "Sem resultados para este filtro.",
+    "torrent.buffering": "A carregar stream...",
+    "torrent.connecting": "A conectar...",
+
+    "subtitles.label": "🔤 Legendas",
+    "subtitles.search_btn": "Pesquisar legendas",
+    "subtitles.background": "⬛ Fundo",
+    "subtitles.sync": "Sync:",
+    "subtitles.use": "✓ Usar",
+    "subtitles.in_use": "✓ Em uso",
+    "subtitles.no_results": "Sem resultados.",
+    "subtitles.error": "Erro ao pesquisar legendas.",
+    "subtitles.lang_all": "Todas",
+
+    "player.continue": "Continuar",
+    "player.resuming_from": "A continuar de",
+
+    "plyr.play": "Reproduzir",
+    "plyr.pause": "Pausar",
+    "plyr.rewind": "Recuar 10s",
+    "plyr.fast_forward": "Avançar 10s",
+    "plyr.mute": "Sem som",
+    "plyr.volume": "Volume",
+    "plyr.captions": "Legendas",
+    "plyr.settings": "Definições",
+    "plyr.fullscreen_enter": "Ecrã inteiro",
+    "plyr.fullscreen_exit": "Sair",
+    "plyr.speed": "Velocidade",
+    "plyr.normal": "Normal"
 }
