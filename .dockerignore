@@ -10,3 +10,4 @@ bootstrap/cache/*
 *.log
 docker-compose*.yml
 Dockerfile
+videos/
