@@ -7,9 +7,11 @@ use App\Http\Controllers\UserAuthController;
 use App\Http\Controllers\VideoController;
 use App\Http\Controllers\WatchProgressController;
 use App\Http\Controllers\Admin\AuthController;
+use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\EpisodeController;
 use App\Http\Controllers\Admin\MovieController;
 use App\Http\Controllers\Admin\SerieController;
+use App\Http\Controllers\Admin\UserController;
 use Illuminate\Support\Facades\Route;
 
 // Idioma (público)
@@ -53,9 +55,12 @@ Route::post('/admin/logout', [AuthController::class, 'logout'])->name('admin.log
 // Admin - área protegida
 Route::prefix('admin')->name('admin.')->middleware(\App\Http\Middleware\AdminAuth::class)->group(function () {
 
-    Route::get('/', function () {
-        return redirect()->route('admin.movies.index');
-    })->name('dashboard');
+    Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
+
+    // Utilizadores
+    Route::get('/users', [UserController::class, 'index'])->name('users.index');
+    Route::post('/users/{user}/toggle-admin', [UserController::class, 'toggleAdmin'])->name('users.toggle-admin');
+    Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
 
     // Filmes
     Route::get('/movies', [MovieController::class, 'index'])->name('movies.index');

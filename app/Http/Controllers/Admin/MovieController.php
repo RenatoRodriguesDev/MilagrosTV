@@ -11,10 +11,14 @@ class MovieController extends Controller
 {
     public function __construct(private TmdbService $tmdb) {}
 
-    public function index()
+    public function index(Request $request)
     {
-        $movies = Movie::orderBy('title')->get();
-        return view('admin.movies.index', compact('movies'));
+        $search = $request->input('search');
+        $movies = Movie::orderBy('title')
+            ->when($search, fn($q) => $q->where('title', 'like', "%{$search}%")
+                ->orWhere('original_title', 'like', "%{$search}%"))
+            ->get();
+        return view('admin.movies.index', compact('movies', 'search'));
     }
 
     public function create()

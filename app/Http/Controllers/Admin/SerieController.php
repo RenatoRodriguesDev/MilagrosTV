@@ -11,10 +11,14 @@ class SerieController extends Controller
 {
     public function __construct(private TmdbService $tmdb) {}
 
-    public function index()
+    public function index(Request $request)
     {
-        $series = Serie::orderBy('title')->get();
-        return view('admin.series.index', compact('series'));
+        $search = $request->input('search');
+        $series = Serie::with('episodes')->orderBy('title')
+            ->when($search, fn($q) => $q->where('title', 'like', "%{$search}%")
+                ->orWhere('original_title', 'like', "%{$search}%"))
+            ->get();
+        return view('admin.series.index', compact('series', 'search'));
     }
 
     public function create()
