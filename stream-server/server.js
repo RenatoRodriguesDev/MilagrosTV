@@ -1,8 +1,8 @@
 import express from 'express';
 import cors    from 'cors';
 import WebTorrent from 'webtorrent';
-import { extname } from 'path';
-import { spawn } from 'child_process';
+import { extname, join } from 'path';
+import { spawn }         from 'child_process';
 
 const TRANSCODE_EXT = new Set(['.mkv', '.avi', '.mov', '.ts']);
 
@@ -181,30 +181,33 @@ app.get('/stream', async (req, res) => {
         const mime  = MIME[ext] || 'application/octet-stream';
 
         if (needsTranscode(file.name)) {
-            // MKV/AVI/HEVC: remux to fragmented MP4 via FFmpeg
+            // MKV/AVI/HEVC: read from disk path so FFmpeg can seek and read duration from header
             const fullTranscode = req.query.transcode === '1';
             const videoCodec = fullTranscode
                 ? ['-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28']
                 : ['-c:v', 'copy'];
 
-            console.log(`${fullTranscode ? 'Transcoding' : 'Remuxing'}: ${file.name}`);
+            // Build full file path — WebTorrent stores files at /tmp/torrents/<file.path>
+            const filePath = join('/tmp/torrents', file.path);
+            console.log(`${fullTranscode ? 'Transcoding' : 'Remuxing'} from disk: ${filePath}`);
             res.writeHead(200, { 'Content-Type': 'video/mp4' });
 
             const ff = spawn('ffmpeg', [
-                '-fflags', 'nobuffer',
-                '-i', 'pipe:0',
+                '-fflags',         'nobuffer',
+                '-analyzeduration','500000',   // 0.5s analysis (faster start)
+                '-probesize',      '500000',   // 500KB probe
+                '-i', filePath,               // read from disk, not stdin
                 ...videoCodec,
                 '-c:a', 'aac', '-b:a', '128k', '-ac', '2',
-                '-f', 'mp4', '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
+                '-f', 'mp4', '-movflags', 'frag_keyframe+default_base_moof',
+                // No empty_moov: FFmpeg reads duration from MKV header → correct timeline
                 'pipe:1'
-            ], { stdio: ['pipe', 'pipe', 'pipe'] });
+            ], { stdio: ['ignore', 'pipe', 'pipe'] }); // stdin is ignore (not needed)
 
-            const src = file.createReadStream();
-            src.pipe(ff.stdin);
             ff.stdout.pipe(res);
             ff.stderr.on('data', () => {});
 
-            req.on('close', () => { ff.kill('SIGKILL'); src.destroy(); });
+            req.on('close', () => ff.kill('SIGKILL'));
             ff.on('error', err => { console.error('FFmpeg error:', err.message); res.end(); });
         } else {
             // MP4/WebM: serve directly with range requests
