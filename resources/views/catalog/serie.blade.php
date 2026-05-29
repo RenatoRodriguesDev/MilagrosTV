@@ -285,7 +285,13 @@ document.getElementById('trailer-modal')?.addEventListener('click', function(e) 
         @foreach($eps as $ep)
         @php $embedUrl = $ep->isExternalUrl() ? $ep->embedUrl() : null; @endphp
         <div class="group flex items-center gap-4 bg-white/5 hover:bg-white/8 rounded-xl px-5 py-4 transition border border-white/5 hover:border-white/10 cursor-pointer"
-             @if($ep->video_path) onclick="playEpisode({{ $ep->id }}, '{{ addslashes($ep->label) }}', {{ $embedUrl ? "'" . addslashes($embedUrl) . "'" : 'null' }})" @endif>
+             @if($ep->video_path)
+                 @if($ep->isExternalUrl())
+                     onclick="window.open('{{ addslashes($ep->video_path) }}', '_blank')"
+                 @else
+                     onclick="playEpisode({{ $ep->id }}, '{{ addslashes($ep->label) }}')"
+                 @endif
+             @endif>
 
             {{-- Episode number --}}
             <div class="w-12 flex-shrink-0 text-center">
@@ -323,7 +329,12 @@ document.getElementById('trailer-modal')?.addEventListener('click', function(e) 
             {{-- Action --}}
             @if($ep->video_path)
             <div class="flex-shrink-0 opacity-0 group-hover:opacity-100 transition flex items-center gap-2">
-                @if(isset($progress[$ep->id]) && !$progress[$ep->id]->completed && $progress[$ep->id]->position > 30)
+                @if($ep->isExternalUrl())
+                <span class="text-blue-400 text-xs font-semibold flex items-center gap-1">
+                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                    Abrir
+                </span>
+                @elseif(isset($progress[$ep->id]) && !$progress[$ep->id]->completed && $progress[$ep->id]->position > 30)
                 <span class="text-orange-400 text-xs font-semibold">{{ __('player.continue') }}</span>
                 @else
                 <span class="text-red-500 text-sm font-bold">{{ __('serie.play') }}</span>
