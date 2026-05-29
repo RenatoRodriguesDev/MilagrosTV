@@ -278,8 +278,15 @@ app.get('/stream', async (req, res) => {
             console.log(`${fullTranscode ? 'Transcoding' : 'Remuxing'}: ${file.name} ss=${seekSec}s dur=${duration.toFixed(1)}s`);
 
             // Try disk path for seeking support; fall back to stdin pipe
-            const diskCandidates = [join('/tmp/torrents', file.path), join('/tmp/torrents', file.name)];
+            const diskCandidates = [
+                join('/tmp/torrents', file.path),
+                join('/tmp/torrents', file.name),
+                join('/tmp/torrents', torrent.name, file.name),
+                join('/tmp/torrents', torrent.name),
+            ];
             const diskPath = diskCandidates.find(p => existsSync(p));
+            console.log(`disk candidates: ${diskCandidates.map((p,i) => `[${i}]${existsSync(p)?'✓':'✗'}${p}`).join(' | ')}`);
+            console.log(`file.path=${file.path} file.name=${file.name} torrent.name=${torrent.name}`);
 
             res.writeHead(200, { 'Content-Type': 'video/mp4' });
 
