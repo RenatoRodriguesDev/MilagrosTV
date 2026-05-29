@@ -18,33 +18,70 @@ function getFileDuration(filePath) {
     });
 }
 
-// Patch the mvhd duration field in the first bytes of a fragmented MP4 stream
+// Patch duration fields (mvhd + all tkhd boxes) in fragmented MP4 stream
 function patchMoovDuration(durationSecs) {
     if (!durationSecs || durationSecs <= 0) return null;
     let buf = Buffer.alloc(0);
     let done = false;
+
+    function patchBox(name, buf, timescaleOff, durationOff, durationOff64) {
+        let pos = 0;
+        let count = 0;
+        while (true) {
+            const idx = buf.indexOf(name, pos);
+            if (idx < 0) break;
+            const ver = buf[idx + 4];
+            if (ver === 0) {
+                const ts = buf.readUInt32BE(idx + timescaleOff);
+                if (ts > 0) {
+                    const d = Math.min(Math.round(durationSecs * ts), 0xFFFFFFFF);
+                    buf.writeUInt32BE(d, idx + durationOff);
+                    count++;
+                }
+            } else if (ver === 1 && durationOff64 !== null) {
+                const ts = buf.readUInt32BE(idx + timescaleOff + 8); // timescale shifts by 8 in v1
+                if (ts > 0) {
+                    const d = BigInt(Math.round(durationSecs * ts));
+                    buf.writeBigUInt64BE(d, idx + durationOff64);
+                    count++;
+                }
+            }
+            pos = idx + 4;
+        }
+        return count;
+    }
 
     return new Transform({
         transform(chunk, _enc, cb) {
             if (done) { cb(null, chunk); return; }
             buf = Buffer.concat([buf, chunk]);
 
-            const idx = buf.indexOf('mvhd');
-            if (idx >= 4 && idx + 32 <= buf.length) {
-                const ver = buf[idx + 4];
-                if (ver === 0 && idx + 24 <= buf.length) {
-                    const ts = buf.readUInt32BE(idx + 16);           // timescale
-                    const d  = Math.min(Math.round(durationSecs * ts), 0xFFFFFFFF);
-                    buf.writeUInt32BE(d, idx + 20);                  // duration
-                } else if (ver === 1 && idx + 36 <= buf.length) {
-                    const ts = buf.readUInt32BE(idx + 24);           // timescale
-                    const d  = BigInt(Math.round(durationSecs * ts));
-                    buf.writeBigUInt64BE(d, idx + 28);               // duration (64-bit)
+            // Wait until we have the full moov (signalled by first 'moof' appearing after 'moov')
+            const moofIdx = buf.indexOf('moof');
+            if (moofIdx > 0) {
+                // Patch mvhd: timescale@+16, duration@+20 (v0); timescale@+24, duration@+28 (v1)
+                const mvhd = patchBox('mvhd', buf, 16, 20, 28);
+                // Patch tkhd: no timescale field — uses mvhd timescale; duration@+24 (v0)
+                // tkhd v0: version(1)+flags(3)+ctime(4)+mtime(4)+trackid(4)+reserved(4)+duration(4)
+                let tkhdPos = 0;
+                while (true) {
+                    const i = buf.indexOf('tkhd', tkhdPos);
+                    if (i < 0) break;
+                    if (buf[i + 4] === 0) {
+                        const mvhdI = buf.indexOf('mvhd');
+                        if (mvhdI >= 0) {
+                            const ts = buf.readUInt32BE(mvhdI + 16);
+                            if (ts > 0) buf.writeUInt32BE(Math.min(Math.round(durationSecs * ts), 0xFFFFFFFF), i + 24);
+                        }
+                    }
+                    tkhdPos = i + 4;
                 }
+                console.log(`Moov patched: mvhd=${mvhd > 0}, dur=${durationSecs.toFixed(1)}s`);
                 done = true;
                 cb(null, buf); buf = Buffer.alloc(0);
-            } else if (buf.length > 128 * 1024) {
-                done = true; cb(null, buf); buf = Buffer.alloc(0);   // give up
+            } else if (buf.length > 256 * 1024) {
+                console.log('Moov patch: gave up (no moof found in 256KB)');
+                done = true; cb(null, buf); buf = Buffer.alloc(0);
             } else {
                 cb();
             }
