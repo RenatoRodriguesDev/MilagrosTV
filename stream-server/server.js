@@ -180,23 +180,28 @@ app.get('/stream', async (req, res) => {
         const ext   = extname(file.name).toLowerCase();
         const mime  = MIME[ext] || 'application/octet-stream';
 
-        if (needsTranscode(file.name)) {
-            // Remux to MP4 container — copy video stream (fast), re-encode audio to AAC
-            // If client requests full transcode (?transcode=1), encode video to H.264 (for HEVC on PC)
+        // Always pipe through FFmpeg to ensure moov atom at start of stream.
+        // For MP4 (no transcode needed): just remux container (-c:v copy, fast, no quality loss).
+        // For MKV/AVI/HEVC: re-encode audio to AAC and optionally video to H.264.
+        {
             const fullTranscode = req.query.transcode === '1';
-            const videoCodec = fullTranscode
+            const forceTranscode = needsTranscode(file.name);
+            const videoCodec = (fullTranscode && forceTranscode)
                 ? ['-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28']
                 : ['-c:v', 'copy'];
+            const audioCodec = forceTranscode
+                ? ['-c:a', 'aac', '-b:a', '128k', '-ac', '2']
+                : ['-c:a', 'copy'];
 
-            console.log(`${fullTranscode ? 'Transcoding' : 'Remuxing'}: ${file.name}`);
+            console.log(`Streaming (${forceTranscode ? 'remux' : 'mp4-frag'}): ${file.name}`);
             res.writeHead(200, { 'Content-Type': 'video/mp4' });
 
             const ff = spawn('ffmpeg', [
                 '-fflags', 'nobuffer',
                 '-i', 'pipe:0',
                 ...videoCodec,
-                '-c:a', 'aac', '-b:a', '128k', '-ac', '2',
-                '-f', 'mp4', '-movflags', 'frag_keyframe+empty_moov',
+                ...audioCodec,
+                '-f', 'mp4', '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
                 'pipe:1'
             ], { stdio: ['pipe', 'pipe', 'pipe'] });
 
@@ -207,28 +212,6 @@ app.get('/stream', async (req, res) => {
 
             req.on('close', () => { ff.kill('SIGKILL'); src.destroy(); });
             ff.on('error', err => { console.error('FFmpeg error:', err.message); res.end(); });
-        } else {
-            const range = req.headers.range;
-            if (range) {
-                const [rawStart, rawEnd] = range.replace(/bytes=/, '').split('-');
-                const start  = parseInt(rawStart, 10) || 0;
-                const end    = rawEnd ? parseInt(rawEnd, 10) : Math.min(start + 1024 * 1024 * 4, total - 1);
-                const length = end - start + 1;
-                res.writeHead(206, {
-                    'Content-Range':  `bytes ${start}-${end}/${total}`,
-                    'Accept-Ranges':  'bytes',
-                    'Content-Length': length,
-                    'Content-Type':   mime,
-                });
-                const stream = file.createReadStream({ start, end });
-                stream.on('error', err => { console.error('Read stream error:', err.message); res.end(); });
-                stream.pipe(res);
-            } else {
-                res.writeHead(200, { 'Content-Length': total, 'Content-Type': mime, 'Accept-Ranges': 'bytes' });
-                const stream = file.createReadStream();
-                stream.on('error', err => { console.error('Read stream error:', err.message); res.end(); });
-                stream.pipe(res);
-            }
         }
     } catch (err) {
         console.error('Stream error:', err.message);
