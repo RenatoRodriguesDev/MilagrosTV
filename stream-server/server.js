@@ -284,12 +284,13 @@ app.get('/stream', async (req, res) => {
             res.writeHead(200, { 'Content-Type': 'video/mp4' });
 
             let ffArgs, ffStdio, src;
-            if (diskPath && seekSec > 0) {
-                // Disk path: fast seek with -ss before -i preserves timestamps
-                ffArgs  = ['-fflags', 'nobuffer', '-ss', String(seekSec), '-i', diskPath, ...videoCodec];
+            if (diskPath) {
+                // Disk path: fast startup, seeking support, no stdin overhead
+                const seekArgs = seekSec > 0 ? ['-ss', String(seekSec)] : [];
+                ffArgs  = ['-fflags', 'nobuffer', ...seekArgs, '-i', diskPath, ...videoCodec];
                 ffStdio = ['ignore', 'pipe', 'pipe'];
             } else {
-                // Stdin pipe: no seeking
+                // Stdin pipe fallback: slower startup, no seeking
                 ffArgs  = ['-fflags', 'nobuffer', '-i', 'pipe:0', ...videoCodec];
                 ffStdio = ['pipe', 'pipe', 'pipe'];
             }

@@ -842,19 +842,23 @@ async function playWebTorrent(idx) {
 
         // Seeking: restart stream at new position using ?ss=
         if (info.canSeek) {
+            let isSeeking = false;
             player.media.addEventListener('seeking', function onSeek() {
+                if (isSeeking) return; // guard against loop
                 const t = Math.floor(player.media.currentTime);
                 if (t < 2) return;
                 clearTimeout(player._seekT);
                 player._seekT = setTimeout(() => {
+                    isSeeking = true;
                     const seekUrl = `${baseUrl}&ss=${t}`;
                     player.once('ready', () => {
+                        isSeeking = false;
                         player.play().catch(() => {});
                         applyDurationOverride(player.media, info.duration);
                     });
                     player.media.addEventListener('loadedmetadata', () => applyDurationOverride(player.media, info.duration), { once: true });
                     player.source = { type: 'video', sources: [{ src: seekUrl, type: 'video/mp4' }] };
-                }, 600);
+                }, 400);
             });
         }
 
