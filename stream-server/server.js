@@ -2,10 +2,56 @@ import express from 'express';
 import cors    from 'cors';
 import WebTorrent from 'webtorrent';
 import { extname, join } from 'path';
-import { spawn }         from 'child_process';
-import { existsSync }    from 'fs';
+import { spawn, execFile } from 'child_process';
+import { existsSync }      from 'fs';
+import { Transform }       from 'stream';
 
 const TRANSCODE_EXT = new Set(['.mkv', '.avi', '.mov', '.ts']);
+
+// Get video duration via ffprobe (fast — reads container header only)
+function getFileDuration(filePath) {
+    return new Promise(resolve => {
+        execFile('ffprobe', [
+            '-v', 'quiet', '-show_entries', 'format=duration',
+            '-of', 'csv=p=0', filePath
+        ], { timeout: 4000 }, (err, stdout) => resolve(parseFloat(stdout?.trim()) || 0));
+    });
+}
+
+// Patch the mvhd duration field in the first bytes of a fragmented MP4 stream
+function patchMoovDuration(durationSecs) {
+    if (!durationSecs || durationSecs <= 0) return null;
+    let buf = Buffer.alloc(0);
+    let done = false;
+
+    return new Transform({
+        transform(chunk, _enc, cb) {
+            if (done) { cb(null, chunk); return; }
+            buf = Buffer.concat([buf, chunk]);
+
+            const idx = buf.indexOf('mvhd');
+            if (idx >= 4 && idx + 32 <= buf.length) {
+                const ver = buf[idx + 4];
+                if (ver === 0 && idx + 24 <= buf.length) {
+                    const ts = buf.readUInt32BE(idx + 16);           // timescale
+                    const d  = Math.min(Math.round(durationSecs * ts), 0xFFFFFFFF);
+                    buf.writeUInt32BE(d, idx + 20);                  // duration
+                } else if (ver === 1 && idx + 36 <= buf.length) {
+                    const ts = buf.readUInt32BE(idx + 24);           // timescale
+                    const d  = BigInt(Math.round(durationSecs * ts));
+                    buf.writeBigUInt64BE(d, idx + 28);               // duration (64-bit)
+                }
+                done = true;
+                cb(null, buf); buf = Buffer.alloc(0);
+            } else if (buf.length > 128 * 1024) {
+                done = true; cb(null, buf); buf = Buffer.alloc(0);   // give up
+            } else {
+                cb();
+            }
+        },
+        flush(cb) { if (buf.length) cb(null, buf); else cb(); }
+    });
+}
 
 function needsTranscode(filename) {
     const ext = extname(filename).toLowerCase();
@@ -189,6 +235,13 @@ app.get('/stream', async (req, res) => {
                 : ['-c:v', 'copy'];
 
             console.log(`${fullTranscode ? 'Transcoding' : 'Remuxing'}: ${file.name}`);
+
+            // Get duration from disk file (fast — MKV stores it in header at start)
+            const diskCandidates = [join('/tmp/torrents', file.path), join('/tmp/torrents', file.name)];
+            const diskPath = diskCandidates.find(p => existsSync(p));
+            const duration = diskPath ? await getFileDuration(diskPath) : 0;
+            console.log(`Duration: ${duration}s (${diskPath ? 'from disk' : 'unknown'})`);
+
             res.writeHead(200, { 'Content-Type': 'video/mp4' });
 
             const ff = spawn('ffmpeg', [
@@ -202,9 +255,16 @@ app.get('/stream', async (req, res) => {
 
             const src = file.createReadStream();
             src.pipe(ff.stdin);
-            ff.stdout.pipe(res);
-            ff.stderr.on('data', () => {});
 
+            // Patch the moov atom with the correct duration before sending to client
+            const patcher = patchMoovDuration(duration);
+            if (patcher) {
+                ff.stdout.pipe(patcher).pipe(res);
+            } else {
+                ff.stdout.pipe(res);
+            }
+
+            ff.stderr.on('data', () => {});
             req.on('close', () => { ff.kill('SIGKILL'); src.destroy(); });
             ff.on('error', err => { console.error('FFmpeg error:', err.message); res.end(); });
         } else {
