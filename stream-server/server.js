@@ -3,6 +3,7 @@ import cors    from 'cors';
 import WebTorrent from 'webtorrent';
 import { extname, join } from 'path';
 import { spawn }         from 'child_process';
+import { existsSync }    from 'fs';
 
 const TRANSCODE_EXT = new Set(['.mkv', '.avi', '.mov', '.ts']);
 
@@ -187,27 +188,54 @@ app.get('/stream', async (req, res) => {
                 ? ['-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28']
                 : ['-c:v', 'copy'];
 
-            // Build full file path — WebTorrent stores files at /tmp/torrents/<file.path>
-            const filePath = join('/tmp/torrents', file.path);
-            console.log(`${fullTranscode ? 'Transcoding' : 'Remuxing'} from disk: ${filePath}`);
+            // Try to use file path on disk for better duration detection
+            const candidates = [
+                join('/tmp/torrents', file.path),
+                join('/tmp/torrents', file.name),
+            ];
+            const filePath = candidates.find(p => existsSync(p));
+
             res.writeHead(200, { 'Content-Type': 'video/mp4' });
 
-            const ff = spawn('ffmpeg', [
-                '-fflags',         'nobuffer',
-                '-analyzeduration','500000',   // 0.5s analysis (faster start)
-                '-probesize',      '500000',   // 500KB probe
-                '-i', filePath,               // read from disk, not stdin
-                ...videoCodec,
-                '-c:a', 'aac', '-b:a', '128k', '-ac', '2',
-                '-f', 'mp4', '-movflags', 'frag_keyframe+default_base_moof',
-                // No empty_moov: FFmpeg reads duration from MKV header → correct timeline
-                'pipe:1'
-            ], { stdio: ['ignore', 'pipe', 'pipe'] }); // stdin is ignore (not needed)
+            let ffArgs, ffStdio;
+            if (filePath) {
+                console.log(`Remuxing from disk (duration-aware): ${filePath}`);
+                ffArgs = [
+                    '-fflags', 'nobuffer',
+                    '-analyzeduration', '500000',
+                    '-probesize', '500000',
+                    '-i', filePath,
+                    ...videoCodec,
+                    '-c:a', 'aac', '-b:a', '128k', '-ac', '2',
+                    '-f', 'mp4', '-movflags', 'frag_keyframe+default_base_moof',
+                    'pipe:1'
+                ];
+                ffStdio = ['ignore', 'pipe', 'pipe'];
+            } else {
+                console.log(`Remuxing from pipe (fallback): ${file.name}`);
+                ffArgs = [
+                    '-fflags', 'nobuffer',
+                    '-i', 'pipe:0',
+                    ...videoCodec,
+                    '-c:a', 'aac', '-b:a', '128k', '-ac', '2',
+                    '-f', 'mp4', '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
+                    'pipe:1'
+                ];
+                ffStdio = ['pipe', 'pipe', 'pipe'];
+            }
+
+            const ff = spawn('ffmpeg', ffArgs, { stdio: ffStdio });
+
+            if (!filePath) {
+                const src = file.createReadStream();
+                src.pipe(ff.stdin);
+                req.on('close', () => { ff.kill('SIGKILL'); src.destroy(); });
+            } else {
+                req.on('close', () => ff.kill('SIGKILL'));
+            }
 
             ff.stdout.pipe(res);
             ff.stderr.on('data', () => {});
-
-            req.on('close', () => ff.kill('SIGKILL'));
             ff.on('error', err => { console.error('FFmpeg error:', err.message); res.end(); });
         } else {
             // MP4/WebM: serve directly with range requests
