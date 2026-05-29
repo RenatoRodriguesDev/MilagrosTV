@@ -82,9 +82,10 @@ const MIME = {
 
 const VIDEO_EXT = Object.keys(MIME);
 
-const urlToHash    = new Map(); // .torrent URL → infoHash
-const inFlight     = new Map(); // magnetOrUrl  → Promise<torrent>
-const lastAccessed = new Map(); // infoHash     → Date.now()
+const urlToHash     = new Map(); // .torrent URL → infoHash
+const inFlight      = new Map(); // magnetOrUrl  → Promise<torrent>
+const lastAccessed  = new Map(); // infoHash     → Date.now()
+const durationCache = new Map(); // infoHash     → duration (seconds)
 
 const MAX_IDLE_MS  = 2 * 60 * 60 * 1000; // 2 horas sem acesso → apagar
 const MAX_TORRENTS = 3;                   // máximo de torrents em simultâneo
@@ -95,8 +96,10 @@ function evictOldTorrents() {
         const idle = now - (lastAccessed.get(torrent.infoHash) ?? 0);
         if (idle > MAX_IDLE_MS) {
             console.log(`Evicting idle torrent: ${torrent.name}`);
+            const h = torrent.infoHash;
             torrent.destroy({ destroyStore: true });
-            lastAccessed.delete(torrent.infoHash);
+            lastAccessed.delete(h);
+            durationCache.delete(h);
         }
     }
     // Se ainda acima do limite, apagar o mais antigo
@@ -236,11 +239,9 @@ app.get('/stream', async (req, res) => {
 
             console.log(`${fullTranscode ? 'Transcoding' : 'Remuxing'}: ${file.name}`);
 
-            // Get duration from disk file (fast — MKV stores it in header at start)
-            const diskCandidates = [join('/tmp/torrents', file.path), join('/tmp/torrents', file.name)];
-            const diskPath = diskCandidates.find(p => existsSync(p));
-            const duration = diskPath ? await getFileDuration(diskPath) : 0;
-            console.log(`Duration: ${duration}s (${diskPath ? 'from disk' : 'unknown'})`);
+            // Use duration cached during preload (no extra ffprobe at stream time)
+            const duration = durationCache.get(torrent.infoHash) || 0;
+            console.log(`Stream duration: ${duration.toFixed(1)}s (${duration > 0 ? 'cached' : 'unknown'})`);
 
             res.writeHead(200, { 'Content-Type': 'video/mp4' });
 
@@ -331,36 +332,38 @@ app.get('/preload', async (req, res) => {
         const torrent = await getOrAdd(decodeURIComponent(magnet));
         const file = torrent.files.find(f => VIDEO_EXT.includes(extname(f.name).toLowerCase()));
 
-        // Try to get duration via ffprobe (MKV stores it in header at start of file)
-        let duration = 0;
-        const diskCandidates = file ? [
-            join('/tmp/torrents', file.path),
-            join('/tmp/torrents', file.name),
-        ] : [];
-        const diskPath = diskCandidates.find(p => existsSync(p));
-
-        if (diskPath) {
-            duration = await new Promise(resolve => {
-                const probe = spawn('ffprobe', [
-                    '-v', 'quiet', '-show_entries', 'format=duration',
-                    '-of', 'csv=p=0', diskPath
-                ]);
-                let out = '';
-                probe.stdout.on('data', d => { out += d; });
-                probe.on('close', () => resolve(parseFloat(out.trim()) || 0));
-                setTimeout(() => { probe.kill(); resolve(0); }, 4000);
+        if (file) {
+            // Pre-download first 2MB so ffprobe can read headers and video starts instantly
+            await new Promise(resolve => {
+                const head = file.createReadStream({ start: 0, end: Math.min(2 * 1024 * 1024, file.length - 1) });
+                head.on('data', () => {}); head.on('end', resolve); head.on('error', resolve);
+                setTimeout(resolve, 10000);
             });
+
+            // For MP4/WebM: also pre-fetch tail for moov atom
+            const ext = extname(file.name).toLowerCase();
+            if (ext === '.mp4' || ext === '.webm') {
+                const tailStart = Math.max(0, file.length - 2 * 1024 * 1024);
+                await new Promise(resolve => {
+                    const tail = file.createReadStream({ start: tailStart, end: file.length - 1 });
+                    tail.on('data', () => {}); tail.on('end', resolve); tail.on('error', resolve);
+                    setTimeout(resolve, 8000);
+                });
+            }
         }
 
-        // For MP4/WebM: pre-fetch tail so browser can find moov atom
-        const ext = file ? extname(file.name).toLowerCase() : '';
-        if (file && (ext === '.mp4' || ext === '.webm')) {
-            const tailStart = Math.max(0, file.length - 2 * 1024 * 1024);
-            await new Promise(resolve => {
-                const tail = file.createReadStream({ start: tailStart, end: file.length - 1 });
-                tail.on('data', () => {}); tail.on('end', resolve); tail.on('error', resolve);
-                setTimeout(resolve, 8000);
-            });
+        // Get duration and cache it (file now has enough data for ffprobe to succeed)
+        let duration = durationCache.get(torrent.infoHash) || 0;
+        if (!duration && file) {
+            const candidates = [join('/tmp/torrents', file.path), join('/tmp/torrents', file.name)];
+            const diskPath   = candidates.find(p => existsSync(p));
+            if (diskPath) {
+                duration = await getFileDuration(diskPath);
+                if (duration > 0) {
+                    durationCache.set(torrent.infoHash, duration);
+                    console.log(`Duration cached: ${duration.toFixed(1)}s for ${torrent.infoHash}`);
+                }
+            }
         }
 
         res.json({
@@ -457,8 +460,10 @@ app.get('/stop', (req, res) => {
     const torrent = findExisting(decodeURIComponent(magnet));
     if (torrent) {
         console.log(`Stopping and removing: ${torrent.name}`);
+        const h = torrent.infoHash;
         torrent.destroy({ destroyStore: true });
-        lastAccessed.delete(torrent.infoHash);
+        lastAccessed.delete(h);
+        durationCache.delete(h);
     }
     res.json({ ok: true });
 });
