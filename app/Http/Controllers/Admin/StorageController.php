@@ -53,4 +53,25 @@ class StorageController extends Controller
 
         return view('admin.storage.index', compact('files', 'totalSize', 'linkedPaths'));
     }
+
+    public function destroy(Request $request)
+    {
+        $request->validate(['path' => 'required|string']);
+
+        $path = $this->videosPath . '/' . ltrim($request->input('path'), '/');
+        $realPath = realpath($path);
+
+        // Security: ensure the file is within the videos folder
+        if (!$realPath || !str_starts_with($realPath, realpath($this->videosPath))) {
+            return response()->json(['error' => 'Caminho inválido.'], 403);
+        }
+
+        if (!file_exists($realPath)) {
+            return response()->json(['error' => 'Ficheiro não encontrado.'], 404);
+        }
+
+        unlink($realPath);
+
+        return response()->json(['ok' => true, 'size' => filesize($realPath) ?: 0]);
+    }
 }

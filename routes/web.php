@@ -95,6 +95,7 @@ Route::prefix('admin')->name('admin.')->middleware(\App\Http\Middleware\AdminAut
 
     // Storage
     Route::get('/storage', [StorageController::class, 'index'])->name('storage.index');
+    Route::delete('/storage/file', [StorageController::class, 'destroy'])->name('storage.destroy');
 
     // Episódios bulk
     Route::post('/series/{serie}/episodes/bulk-update', [EpisodeController::class, 'bulkUpdate'])->name('series.episodes.bulk-update');

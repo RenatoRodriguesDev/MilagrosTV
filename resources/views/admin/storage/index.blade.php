@@ -76,9 +76,12 @@
             <div class="w-2 h-2 rounded-full flex-shrink-0 {{ $file['linked'] ? 'bg-green-500' : 'bg-yellow-500' }}"></div>
             <div class="flex-1 min-w-0">
                 <p class="text-sm truncate">{{ $file['name'] }}</p>
-                <p class="text-xs text-gray-500">{{ $file['folder'] }}</p>
+                <p class="text-xs text-gray-500">{{ $file['folder'] }} · {{ $fmt($file['size']) }}</p>
             </div>
-            <span class="text-xs font-mono text-gray-400 flex-shrink-0">{{ $fmt($file['size']) }}</span>
+            <button onclick="deleteFile('{{ addslashes($file['path']) }}', '{{ addslashes($file['name']) }}', this)"
+                class="text-xs px-2.5 py-1.5 rounded-lg bg-red-900/20 text-red-400 hover:bg-red-900/40 transition flex-shrink-0">
+                Apagar
+            </button>
         </div>
         @endforeach
     </div>
@@ -92,13 +95,14 @@
                 <th class="text-left px-5 py-3">Pasta</th>
                 <th class="text-right px-5 py-3">Tamanho</th>
                 <th class="text-left px-5 py-3">Estado</th>
+                <th class="px-5 py-3"></th>
             </tr>
         </thead>
         <tbody class="divide-y divide-white/[.05]">
             @foreach($files as $i => $file)
-            <tr class="hover:bg-white/[.02]">
+            <tr class="hover:bg-white/[.02] group" id="row-{{ $i }}">
                 <td class="px-5 py-3 text-gray-600 text-xs">{{ $i+1 }}</td>
-                <td class="px-5 py-3 font-mono text-xs text-gray-200 max-w-xs truncate">{{ $file['name'] }}</td>
+                <td class="px-5 py-3 font-mono text-xs text-gray-200 max-w-xs truncate" title="{{ $file['path'] }}">{{ $file['name'] }}</td>
                 <td class="px-5 py-3 text-gray-500 text-xs">{{ $file['folder'] }}</td>
                 <td class="px-5 py-3 text-right font-mono text-xs text-gray-300">{{ $fmt($file['size']) }}</td>
                 <td class="px-5 py-3">
@@ -108,6 +112,12 @@
                         <span class="text-xs bg-yellow-600/20 text-yellow-400 px-2 py-0.5 rounded-full">Sem episódio</span>
                     @endif
                 </td>
+                <td class="px-5 py-3">
+                    <button onclick="deleteFile('{{ addslashes($file['path']) }}', '{{ addslashes($file['name']) }}', this)"
+                        class="opacity-0 group-hover:opacity-100 text-xs px-2.5 py-1.5 rounded-lg bg-red-900/20 text-red-400 hover:bg-red-900/40 transition">
+                        Apagar
+                    </button>
+                </td>
             </tr>
             @endforeach
         </tbody>
@@ -116,3 +126,32 @@
 @endif
 
 @endsection
+
+@push('scripts')
+<script>
+async function deleteFile(path, name, btn) {
+    if (!confirm(`Apagar "${name}" do disco?\n\nEsta acção é irreversível.`)) return;
+
+    btn.disabled = true;
+    btn.textContent = '...';
+
+    const res = await fetch('{{ route('admin.storage.destroy') }}', {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content,
+        },
+        body: JSON.stringify({ path }),
+    });
+
+    if (res.ok) {
+        btn.closest('tr, .flex')?.remove();
+    } else {
+        const data = await res.json().catch(() => ({}));
+        alert('Erro: ' + (data.error || 'Não foi possível apagar o ficheiro.'));
+        btn.disabled = false;
+        btn.textContent = 'Apagar';
+    }
+}
+</script>
+@endpush
