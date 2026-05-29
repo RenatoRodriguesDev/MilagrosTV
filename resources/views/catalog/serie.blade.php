@@ -834,9 +834,36 @@ async function playWebTorrent(idx) {
             tracks: tracks,
         };
 
+        // Override video.duration via property descriptor — browser ignores mvhd for fragmented streams
+        if (info.duration > 0) {
+            const fixDur = () => {
+                try {
+                    Object.defineProperty(player.media, 'duration', {
+                        get: () => info.duration,
+                        configurable: true,
+                    });
+                    player.media.dispatchEvent(new Event('durationchange'));
+                } catch(_) {}
+            };
+            // Hook before Plyr reads it for the first time
+            player.media.addEventListener('loadedmetadata', fixDur, { once: true });
+            player.media.addEventListener('canplay',        fixDur, { once: true });
+        }
+
         player.once('ready', () => {
             player.play().catch(() => {});
             progress.style.width = '100%';
+
+            // Re-apply duration override after ready (Plyr may have re-read it)
+            if (info.duration > 0) {
+                try {
+                    Object.defineProperty(player.media, 'duration', {
+                        get: () => info.duration,
+                        configurable: true,
+                    });
+                    player.media.dispatchEvent(new Event('durationchange'));
+                } catch(_) {}
+            }
 
             // Poll download speed every 3s
             window._speedInterval = setInterval(async () => {
