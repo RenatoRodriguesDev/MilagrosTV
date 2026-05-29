@@ -837,6 +837,24 @@ async function playWebTorrent(idx) {
         player.once('ready', () => {
             player.play().catch(() => {});
             progress.style.width = '100%';
+
+            // Fix timeline: override duration with known value from preload
+            if (info.duration > 0) {
+                const fixDuration = () => {
+                    try {
+                        if (player.media.duration < info.duration * 0.9) {
+                            Object.defineProperty(player.media, 'duration', {
+                                get: () => info.duration,
+                                configurable: true,
+                            });
+                            player.media.dispatchEvent(new Event('durationchange'));
+                        }
+                    } catch(_) {}
+                };
+                player.media.addEventListener('durationchange', fixDuration, { once: true });
+                setTimeout(fixDuration, 1000);
+            }
+
             // Poll download speed every 3s
             window._speedInterval = setInterval(async () => {
                 try {

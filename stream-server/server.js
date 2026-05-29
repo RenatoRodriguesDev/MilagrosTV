@@ -188,54 +188,24 @@ app.get('/stream', async (req, res) => {
                 ? ['-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28']
                 : ['-c:v', 'copy'];
 
-            // Try to use file path on disk for better duration detection
-            const candidates = [
-                join('/tmp/torrents', file.path),
-                join('/tmp/torrents', file.name),
-            ];
-            const filePath = candidates.find(p => existsSync(p));
-
+            console.log(`${fullTranscode ? 'Transcoding' : 'Remuxing'}: ${file.name}`);
             res.writeHead(200, { 'Content-Type': 'video/mp4' });
 
-            let ffArgs, ffStdio;
-            if (filePath) {
-                console.log(`Remuxing from disk (duration-aware): ${filePath}`);
-                ffArgs = [
-                    '-fflags', 'nobuffer',
-                    '-analyzeduration', '500000',
-                    '-probesize', '500000',
-                    '-i', filePath,
-                    ...videoCodec,
-                    '-c:a', 'aac', '-b:a', '128k', '-ac', '2',
-                    '-f', 'mp4', '-movflags', 'frag_keyframe+default_base_moof',
-                    'pipe:1'
-                ];
-                ffStdio = ['ignore', 'pipe', 'pipe'];
-            } else {
-                console.log(`Remuxing from pipe (fallback): ${file.name}`);
-                ffArgs = [
-                    '-fflags', 'nobuffer',
-                    '-i', 'pipe:0',
-                    ...videoCodec,
-                    '-c:a', 'aac', '-b:a', '128k', '-ac', '2',
-                    '-f', 'mp4', '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
-                    'pipe:1'
-                ];
-                ffStdio = ['pipe', 'pipe', 'pipe'];
-            }
+            const ff = spawn('ffmpeg', [
+                '-fflags', 'nobuffer',
+                '-i', 'pipe:0',
+                ...videoCodec,
+                '-c:a', 'aac', '-b:a', '128k', '-ac', '2',
+                '-f', 'mp4', '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
+                'pipe:1'
+            ], { stdio: ['pipe', 'pipe', 'pipe'] });
 
-            const ff = spawn('ffmpeg', ffArgs, { stdio: ffStdio });
-
-            if (!filePath) {
-                const src = file.createReadStream();
-                src.pipe(ff.stdin);
-                req.on('close', () => { ff.kill('SIGKILL'); src.destroy(); });
-            } else {
-                req.on('close', () => ff.kill('SIGKILL'));
-            }
-
+            const src = file.createReadStream();
+            src.pipe(ff.stdin);
             ff.stdout.pipe(res);
             ff.stderr.on('data', () => {});
+
+            req.on('close', () => { ff.kill('SIGKILL'); src.destroy(); });
             ff.on('error', err => { console.error('FFmpeg error:', err.message); res.end(); });
         } else {
             // MP4/WebM: serve directly with range requests
@@ -301,24 +271,36 @@ app.get('/preload', async (req, res) => {
         const torrent = await getOrAdd(decodeURIComponent(magnet));
         const file = torrent.files.find(f => VIDEO_EXT.includes(extname(f.name).toLowerCase()));
 
+        // Try to get duration via ffprobe (MKV stores it in header at start of file)
+        let duration = 0;
+        const diskCandidates = file ? [
+            join('/tmp/torrents', file.path),
+            join('/tmp/torrents', file.name),
+        ] : [];
+        const diskPath = diskCandidates.find(p => existsSync(p));
+
+        if (diskPath) {
+            duration = await new Promise(resolve => {
+                const probe = spawn('ffprobe', [
+                    '-v', 'quiet', '-show_entries', 'format=duration',
+                    '-of', 'csv=p=0', diskPath
+                ]);
+                let out = '';
+                probe.stdout.on('data', d => { out += d; });
+                probe.on('close', () => resolve(parseFloat(out.trim()) || 0));
+                setTimeout(() => { probe.kill(); resolve(0); }, 4000);
+            });
+        }
+
+        // For MP4/WebM: pre-fetch tail so browser can find moov atom
         const ext = file ? extname(file.name).toLowerCase() : '';
         if (file && (ext === '.mp4' || ext === '.webm')) {
-            // Download first 4MB (video start) and last 2MB (moov atom) in parallel
-            const headEnd  = Math.min(4 * 1024 * 1024, file.length - 1);
             const tailStart = Math.max(0, file.length - 2 * 1024 * 1024);
-
-            await Promise.all([
-                new Promise(resolve => {
-                    const head = file.createReadStream({ start: 0, end: headEnd });
-                    head.on('data', () => {}); head.on('end', resolve); head.on('error', resolve);
-                    setTimeout(resolve, 8000);
-                }),
-                new Promise(resolve => {
-                    const tail = file.createReadStream({ start: tailStart, end: file.length - 1 });
-                    tail.on('data', () => {}); tail.on('end', resolve); tail.on('error', resolve);
-                    setTimeout(resolve, 10000);
-                }),
-            ]);
+            await new Promise(resolve => {
+                const tail = file.createReadStream({ start: tailStart, end: file.length - 1 });
+                tail.on('data', () => {}); tail.on('end', resolve); tail.on('error', resolve);
+                setTimeout(resolve, 8000);
+            });
         }
 
         res.json({
@@ -328,6 +310,7 @@ app.get('/preload', async (req, res) => {
             size:         file?.length || 0,
             peers:        torrent.numPeers,
             needsRemux:   file ? needsTranscode(file.name) : false,
+            duration,
         });
     } catch (err) {
         res.status(503).json({ error: err.message });
