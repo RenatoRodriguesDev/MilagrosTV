@@ -270,13 +270,24 @@ app.get('/preload', async (req, res) => {
         const torrent = await getOrAdd(decodeURIComponent(magnet));
         const file = torrent.files.find(f => VIDEO_EXT.includes(extname(f.name).toLowerCase()));
 
-        // For MP4 files: pre-fetch the last 512KB to get the moov atom quickly
         const ext = file ? extname(file.name).toLowerCase() : '';
         if (file && (ext === '.mp4' || ext === '.webm')) {
-            const tailStart = Math.max(0, file.length - 512 * 1024);
-            const tail = file.createReadStream({ start: tailStart, end: file.length - 1 });
-            tail.on('data', () => {}); // consume to trigger download
-            tail.on('error', () => {});
+            // Download first 4MB (video start) and last 2MB (moov atom) in parallel
+            const headEnd  = Math.min(4 * 1024 * 1024, file.length - 1);
+            const tailStart = Math.max(0, file.length - 2 * 1024 * 1024);
+
+            await Promise.all([
+                new Promise(resolve => {
+                    const head = file.createReadStream({ start: 0, end: headEnd });
+                    head.on('data', () => {}); head.on('end', resolve); head.on('error', resolve);
+                    setTimeout(resolve, 8000);
+                }),
+                new Promise(resolve => {
+                    const tail = file.createReadStream({ start: tailStart, end: file.length - 1 });
+                    tail.on('data', () => {}); tail.on('end', resolve); tail.on('error', resolve);
+                    setTimeout(resolve, 10000);
+                }),
+            ]);
         }
 
         res.json({
