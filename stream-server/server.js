@@ -180,27 +180,21 @@ app.get('/stream', async (req, res) => {
         const ext   = extname(file.name).toLowerCase();
         const mime  = MIME[ext] || 'application/octet-stream';
 
-        // Always pipe through FFmpeg to ensure moov atom at start of stream.
-        // For MP4 (no transcode needed): just remux container (-c:v copy, fast, no quality loss).
-        // For MKV/AVI/HEVC: re-encode audio to AAC and optionally video to H.264.
-        {
+        if (needsTranscode(file.name)) {
+            // MKV/AVI/HEVC: remux to fragmented MP4 via FFmpeg
             const fullTranscode = req.query.transcode === '1';
-            const forceTranscode = needsTranscode(file.name);
-            const videoCodec = (fullTranscode && forceTranscode)
+            const videoCodec = fullTranscode
                 ? ['-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28']
                 : ['-c:v', 'copy'];
-            const audioCodec = forceTranscode
-                ? ['-c:a', 'aac', '-b:a', '128k', '-ac', '2']
-                : ['-c:a', 'copy'];
 
-            console.log(`Streaming (${forceTranscode ? 'remux' : 'mp4-frag'}): ${file.name}`);
+            console.log(`${fullTranscode ? 'Transcoding' : 'Remuxing'}: ${file.name}`);
             res.writeHead(200, { 'Content-Type': 'video/mp4' });
 
             const ff = spawn('ffmpeg', [
                 '-fflags', 'nobuffer',
                 '-i', 'pipe:0',
                 ...videoCodec,
-                ...audioCodec,
+                '-c:a', 'aac', '-b:a', '128k', '-ac', '2',
                 '-f', 'mp4', '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
                 'pipe:1'
             ], { stdio: ['pipe', 'pipe', 'pipe'] });
@@ -212,6 +206,30 @@ app.get('/stream', async (req, res) => {
 
             req.on('close', () => { ff.kill('SIGKILL'); src.destroy(); });
             ff.on('error', err => { console.error('FFmpeg error:', err.message); res.end(); });
+        } else {
+            // MP4/WebM: serve directly with range requests
+            // The moov atom may be at the end; browser fetches it via Range and updates duration
+            const range = req.headers.range;
+            if (range) {
+                const [rawStart, rawEnd] = range.replace(/bytes=/, '').split('-');
+                const start  = parseInt(rawStart, 10) || 0;
+                const end    = rawEnd ? parseInt(rawEnd, 10) : Math.min(start + 1024 * 1024 * 4, total - 1);
+                const length = end - start + 1;
+                res.writeHead(206, {
+                    'Content-Range':  `bytes ${start}-${end}/${total}`,
+                    'Accept-Ranges':  'bytes',
+                    'Content-Length': length,
+                    'Content-Type':   mime,
+                });
+                const stream = file.createReadStream({ start, end });
+                stream.on('error', err => { console.error('Read stream error:', err.message); res.end(); });
+                stream.pipe(res);
+            } else {
+                res.writeHead(200, { 'Content-Length': total, 'Content-Type': mime, 'Accept-Ranges': 'bytes' });
+                const stream = file.createReadStream();
+                stream.on('error', err => { console.error('Read stream error:', err.message); res.end(); });
+                stream.pipe(res);
+            }
         }
     } catch (err) {
         console.error('Stream error:', err.message);
