@@ -269,6 +269,16 @@ app.get('/preload', async (req, res) => {
     try {
         const torrent = await getOrAdd(decodeURIComponent(magnet));
         const file = torrent.files.find(f => VIDEO_EXT.includes(extname(f.name).toLowerCase()));
+
+        // For MP4 files: pre-fetch the last 512KB to get the moov atom quickly
+        const ext = file ? extname(file.name).toLowerCase() : '';
+        if (file && (ext === '.mp4' || ext === '.webm')) {
+            const tailStart = Math.max(0, file.length - 512 * 1024);
+            const tail = file.createReadStream({ start: tailStart, end: file.length - 1 });
+            tail.on('data', () => {}); // consume to trigger download
+            tail.on('error', () => {});
+        }
+
         res.json({
             ok:           true,
             name:         torrent.name,
