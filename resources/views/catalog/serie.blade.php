@@ -804,66 +804,64 @@ async function playWebTorrent(idx) {
         progressInterval = null;
         progress.style.width = '90%';
 
-        // Check for multiple video files — offer quality selection
+        // Quality picker — use videoFiles from preload (no extra /info call)
         let fileIndex = '';
-        try {
-            const infoRes  = await fetch(`${STREAM_SERVER}/info?magnet=${encodeURIComponent(magnet)}`);
-            const infoData = await infoRes.json();
-            if (infoData.videoFiles && infoData.videoFiles.length > 1) {
-                const choice = await showQualityPicker(infoData.videoFiles);
-                if (choice !== null) fileIndex = `&fileIndex=${choice}`;
-            }
-        } catch(_) {}
+        if (info.videoFiles && info.videoFiles.length > 1) {
+            const choice = await showQualityPicker(info.videoFiles);
+            if (choice !== null) fileIndex = `&fileIndex=${choice}`;
+        }
 
         status.textContent = `A iniciar: ${info.name || '...'} (${info.peers} peers)`;
 
-        // Load subtitles from torrent (if any .srt/.ass files exist)
         const tracks = await getSubtitleTracks(magnet);
 
-        // Step 2: build stream URL — add ?transcode=1 for HEVC on browsers that need it
-        const hevcFile = info.needsRemux && /\b(HEVC|X265|H\.?265|HEVC10)\b/i.test(info.file || '');
+        const hevcFile    = info.needsRemux && /\b(HEVC|X265|H\.?265|HEVC10)\b/i.test(info.file || '');
         const needsEncode = hevcFile && !browserSupportsHEVC();
-        const streamUrl = `${STREAM_SERVER}/stream?magnet=${encodeURIComponent(magnet)}${needsEncode ? '&transcode=1' : ''}${fileIndex}`;
-        currentStreamUrl = streamUrl;
-        currentMagnet    = magnet;
+        const baseUrl     = `${STREAM_SERVER}/stream?magnet=${encodeURIComponent(magnet)}${needsEncode ? '&transcode=1' : ''}${fileIndex}`;
+        currentStreamUrl  = baseUrl;
+        currentMagnet     = magnet;
+
+        function applyDurationOverride(media, dur) {
+            if (!dur) return;
+            try {
+                Object.defineProperty(media, 'duration', { get: () => dur, configurable: true });
+                media.dispatchEvent(new Event('durationchange'));
+            } catch(_) {}
+        }
+
+        function loadStream(player, url, seekPos) {
+            applyDurationOverride(player.media, info.duration);
+            player.media.addEventListener('loadedmetadata', () => applyDurationOverride(player.media, info.duration), { once: true });
+            player.media.addEventListener('canplay',        () => applyDurationOverride(player.media, info.duration), { once: true });
+
+            player.source = { type: 'video', sources: [{ src: url, type: 'video/mp4' }], tracks };
+        }
+
         const player = getTorrentPlyr();
+        loadStream(player, baseUrl, 0);
 
-        player.source = {
-            type: 'video',
-            sources: [{ src: streamUrl, type: 'video/mp4' }],
-            tracks: tracks,
-        };
-
-        // Override video.duration via property descriptor — browser ignores mvhd for fragmented streams
-        if (info.duration > 0) {
-            const fixDur = () => {
-                try {
-                    Object.defineProperty(player.media, 'duration', {
-                        get: () => info.duration,
-                        configurable: true,
+        // Seeking: restart stream at new position using ?ss=
+        if (info.canSeek) {
+            player.media.addEventListener('seeking', function onSeek() {
+                const t = Math.floor(player.media.currentTime);
+                if (t < 2) return;
+                clearTimeout(player._seekT);
+                player._seekT = setTimeout(() => {
+                    const seekUrl = `${baseUrl}&ss=${t}`;
+                    player.once('ready', () => {
+                        player.play().catch(() => {});
+                        applyDurationOverride(player.media, info.duration);
                     });
-                    player.media.dispatchEvent(new Event('durationchange'));
-                } catch(_) {}
-            };
-            // Hook before Plyr reads it for the first time
-            player.media.addEventListener('loadedmetadata', fixDur, { once: true });
-            player.media.addEventListener('canplay',        fixDur, { once: true });
+                    player.media.addEventListener('loadedmetadata', () => applyDurationOverride(player.media, info.duration), { once: true });
+                    player.source = { type: 'video', sources: [{ src: seekUrl, type: 'video/mp4' }] };
+                }, 600);
+            });
         }
 
         player.once('ready', () => {
             player.play().catch(() => {});
+            applyDurationOverride(player.media, info.duration);
             progress.style.width = '100%';
-
-            // Re-apply duration override after ready (Plyr may have re-read it)
-            if (info.duration > 0) {
-                try {
-                    Object.defineProperty(player.media, 'duration', {
-                        get: () => info.duration,
-                        configurable: true,
-                    });
-                    player.media.dispatchEvent(new Event('durationchange'));
-                } catch(_) {}
-            }
 
             // Poll download speed every 3s
             window._speedInterval = setInterval(async () => {

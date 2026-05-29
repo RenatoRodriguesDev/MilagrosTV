@@ -268,42 +268,53 @@ app.get('/stream', async (req, res) => {
         const mime  = MIME[ext] || 'application/octet-stream';
 
         if (needsTranscode(file.name)) {
-            // MKV/AVI/HEVC: read from disk path so FFmpeg can seek and read duration from header
             const fullTranscode = req.query.transcode === '1';
-            const videoCodec = fullTranscode
+            const seekSec       = parseFloat(req.query.ss) || 0;
+            const videoCodec    = fullTranscode
                 ? ['-c:v', 'libx264', '-preset', 'ultrafast', '-crf', '28']
                 : ['-c:v', 'copy'];
 
-            console.log(`${fullTranscode ? 'Transcoding' : 'Remuxing'}: ${file.name}`);
-
-            // Use duration cached during preload (no extra ffprobe at stream time)
             const duration = durationCache.get(torrent.infoHash) || 0;
-            console.log(`Stream duration: ${duration.toFixed(1)}s (${duration > 0 ? 'cached' : 'unknown'})`);
+            console.log(`${fullTranscode ? 'Transcoding' : 'Remuxing'}: ${file.name} ss=${seekSec}s dur=${duration.toFixed(1)}s`);
+
+            // Try disk path for seeking support; fall back to stdin pipe
+            const diskCandidates = [join('/tmp/torrents', file.path), join('/tmp/torrents', file.name)];
+            const diskPath = diskCandidates.find(p => existsSync(p));
 
             res.writeHead(200, { 'Content-Type': 'video/mp4' });
 
-            const ff = spawn('ffmpeg', [
-                '-fflags', 'nobuffer',
-                '-i', 'pipe:0',
-                ...videoCodec,
+            let ffArgs, ffStdio, src;
+            if (diskPath && seekSec > 0) {
+                // Disk path: fast seek with -ss before -i preserves timestamps
+                ffArgs  = ['-fflags', 'nobuffer', '-ss', String(seekSec), '-i', diskPath, ...videoCodec];
+                ffStdio = ['ignore', 'pipe', 'pipe'];
+            } else {
+                // Stdin pipe: no seeking
+                ffArgs  = ['-fflags', 'nobuffer', '-i', 'pipe:0', ...videoCodec];
+                ffStdio = ['pipe', 'pipe', 'pipe'];
+            }
+
+            const ff = spawn('ffmpeg', [...ffArgs,
+                '-c:a', 'aac', '-b:a', '128k', '-ac', '2',
+                '-f', 'mp4', '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
                 '-c:a', 'aac', '-b:a', '128k', '-ac', '2',
                 '-f', 'mp4', '-movflags', 'frag_keyframe+empty_moov+default_base_moof',
                 'pipe:1'
-            ], { stdio: ['pipe', 'pipe', 'pipe'] });
+            ], { stdio: ffStdio });
 
-            const src = file.createReadStream();
-            src.pipe(ff.stdin);
-
-            // Patch the moov atom with the correct duration before sending to client
-            const patcher = patchMoovDuration(duration);
-            if (patcher) {
-                ff.stdout.pipe(patcher).pipe(res);
-            } else {
-                ff.stdout.pipe(res);
+            if (ffStdio[0] === 'pipe') {
+                src = file.createReadStream();
+                src.pipe(ff.stdin);
             }
 
+            // Patch moov with cached duration (adjusting for seek offset)
+            const patchDur = duration > 0 ? duration - seekSec : 0;
+            const patcher  = patchMoovDuration(patchDur);
+            if (patcher) { ff.stdout.pipe(patcher).pipe(res); }
+            else          { ff.stdout.pipe(res); }
+
             ff.stderr.on('data', () => {});
-            req.on('close', () => { ff.kill('SIGKILL'); src.destroy(); });
+            req.on('close', () => { ff.kill('SIGKILL'); if (src) src.destroy(); });
             ff.on('error', err => { console.error('FFmpeg error:', err.message); res.end(); });
         } else {
             // MP4/WebM: serve directly with range requests
@@ -403,14 +414,25 @@ app.get('/preload', async (req, res) => {
             }
         }
 
+        const videoFiles = torrent.files
+            .map((f, i) => ({ index: i, name: f.name, size: f.length }))
+            .filter(f => VIDEO_EXT.includes(extname(f.name).toLowerCase()));
+
+        const canSeek = (() => {
+            const candidates = file ? [join('/tmp/torrents', file.path), join('/tmp/torrents', file.name)] : [];
+            return candidates.some(p => existsSync(p));
+        })();
+
         res.json({
-            ok:           true,
-            name:         torrent.name,
-            file:         file?.name || torrent.name,
-            size:         file?.length || 0,
-            peers:        torrent.numPeers,
-            needsRemux:   file ? needsTranscode(file.name) : false,
+            ok:         true,
+            name:       torrent.name,
+            file:       file?.name || torrent.name,
+            size:       file?.length || 0,
+            peers:      torrent.numPeers,
+            needsRemux: file ? needsTranscode(file.name) : false,
             duration,
+            videoFiles,
+            canSeek,
         });
     } catch (err) {
         res.status(503).json({ error: err.message });
