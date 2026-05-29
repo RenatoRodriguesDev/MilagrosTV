@@ -133,4 +133,33 @@ class EpisodeController extends Controller
         $episode->delete();
         return back()->with('success', 'Episódio removido.');
     }
+
+    public function bulkUpdate(Request $request, Serie $serie)
+    {
+        $request->validate(['episodes' => 'required|array']);
+
+        $count = 0;
+        foreach ($request->input('episodes') as $id => $data) {
+            $ep = Episode::where('id', $id)->where('serie_id', $serie->id)->first();
+            if (!$ep) continue;
+            $ep->update([
+                'title'      => $data['title'] ?? $ep->title,
+                'video_path' => $data['video_path'] ?? $ep->video_path,
+                'season'     => $data['season'] ?? $ep->season,
+                'episode'    => $data['episode'] ?? $ep->episode,
+            ]);
+            $count++;
+        }
+
+        return response()->json(['updated' => $count]);
+    }
+
+    public function bulkDestroy(Request $request, Serie $serie)
+    {
+        $request->validate(['ids' => 'required|array']);
+        $deleted = Episode::whereIn('id', $request->input('ids'))
+            ->where('serie_id', $serie->id)
+            ->delete();
+        return response()->json(['deleted' => $deleted]);
+    }
 }

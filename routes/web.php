@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\CatalogController;
 use App\Http\Controllers\NotificationController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SubtitleController;
 use App\Http\Controllers\TorrentController;
@@ -12,8 +13,11 @@ use App\Http\Controllers\WatchProgressController;
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\EpisodeController;
+use App\Http\Controllers\Admin\FileDetectionController;
+use App\Http\Controllers\Admin\LogController;
 use App\Http\Controllers\Admin\MovieController;
 use App\Http\Controllers\Admin\SerieController;
+use App\Http\Controllers\Admin\StorageController;
 use App\Http\Controllers\Admin\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -55,6 +59,11 @@ Route::middleware('auth')->group(function () {
     // Watchlist
     Route::post('/watchlist', [WatchlistController::class, 'toggle'])->name('watchlist.toggle');
 
+    // Perfil
+    Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
+    Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
+    Route::patch('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
+
     // Notificações
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/read', [NotificationController::class, 'markRead'])->name('notifications.read');
@@ -78,7 +87,18 @@ Route::prefix('admin')->name('admin.')->middleware(\App\Http\Middleware\AdminAut
     Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
 
     // Detecção automática de ficheiros
-    Route::get('/files/scan', [\App\Http\Controllers\Admin\FileDetectionController::class, 'scan'])->name('files.scan');
+    Route::get('/files/scan', [FileDetectionController::class, 'scan'])->name('files.scan');
+
+    // Logs
+    Route::get('/logs', [LogController::class, 'index'])->name('logs.index');
+    Route::post('/logs/clear', [LogController::class, 'clear'])->name('logs.clear');
+
+    // Storage
+    Route::get('/storage', [StorageController::class, 'index'])->name('storage.index');
+
+    // Episódios bulk
+    Route::post('/series/{serie}/episodes/bulk-update', [EpisodeController::class, 'bulkUpdate'])->name('series.episodes.bulk-update');
+    Route::post('/series/{serie}/episodes/bulk-destroy', [EpisodeController::class, 'bulkDestroy'])->name('series.episodes.bulk-destroy');
 
     // Filmes
     Route::get('/movies', [MovieController::class, 'index'])->name('movies.index');

@@ -166,7 +166,14 @@ app.get('/stream', async (req, res) => {
         if (disconnected) return;
         lastAccessed.set(torrent.infoHash, Date.now());
 
-        const file = torrent.files.find(f => VIDEO_EXT.includes(extname(f.name).toLowerCase()));
+        // Allow selecting a specific file by index
+        const fileIndex = req.query.fileIndex !== undefined ? parseInt(req.query.fileIndex) : -1;
+        let file;
+        if (fileIndex >= 0 && torrent.files[fileIndex]) {
+            file = torrent.files[fileIndex];
+        } else {
+            file = torrent.files.find(f => VIDEO_EXT.includes(extname(f.name).toLowerCase()));
+        }
         if (!file) return res.status(404).json({ error: 'No video file found in torrent' });
 
         const total = file.length;
@@ -235,11 +242,19 @@ app.get('/info', async (req, res) => {
 
     try {
         const torrent = await getOrAdd(decodeURIComponent(magnet));
+        const videoFiles = torrent.files
+            .map((f, i) => ({ index: i, name: f.name, size: f.length }))
+            .filter(f => VIDEO_EXT.includes(extname(f.name).toLowerCase()));
         res.json({
-            name:     torrent.name,
-            files:    torrent.files.map((f, i) => ({ index: i, name: f.name, size: f.length })),
-            peers:    torrent.numPeers,
-            progress: torrent.progress,
+            name:          torrent.name,
+            files:         torrent.files.map((f, i) => ({ index: i, name: f.name, size: f.length })),
+            videoFiles,
+            peers:         torrent.numPeers,
+            progress:      torrent.progress,
+            downloadSpeed: torrent.downloadSpeed,
+            uploadSpeed:   torrent.uploadSpeed,
+            downloaded:    torrent.downloaded,
+            timeRemaining: torrent.timeRemaining,
         });
     } catch (err) {
         res.status(503).json({ error: err.message });

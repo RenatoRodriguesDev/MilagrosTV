@@ -114,29 +114,40 @@
     @if($grouped->isEmpty())
         <p class="text-gray-500 text-sm">Ainda não há episódios.</p>
     @else
+
+    {{-- Bulk actions bar --}}
+    <div id="bulk-bar" class="hidden bg-blue-900/30 border border-blue-700/40 rounded-xl px-4 py-3 mb-3 flex items-center gap-3">
+        <span id="bulk-count" class="text-sm text-blue-300 font-medium"></span>
+        <button onclick="bulkSave()" class="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg transition">Guardar alterações</button>
+        <button onclick="bulkDelete()" class="text-xs bg-red-900/40 hover:bg-red-900/60 text-red-400 px-3 py-1.5 rounded-lg transition">Eliminar seleccionados</button>
+        <button onclick="clearSelection()" class="text-xs text-gray-500 hover:text-white ml-auto">Cancelar</button>
+    </div>
+
         @foreach($grouped as $season => $eps)
         <div class="mb-4">
-            <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2 px-1">Temporada {{ $season }}</h4>
-            <div class="space-y-1">
+            <div class="flex items-center gap-2 mb-2 px-1">
+                <h4 class="text-xs font-semibold text-gray-500 uppercase tracking-wide">Temporada {{ $season }}</h4>
+                <button onclick="selectSeason({{ $season }})" class="text-[10px] text-gray-600 hover:text-gray-400">Seleccionar todos</button>
+            </div>
+            <div class="space-y-1" data-season="{{ $season }}">
                 @foreach($eps as $ep)
-                <div class="bg-gray-800/60 border border-white/[.05] rounded-xl px-4 py-3">
-                    <div class="flex items-start gap-3">
-                        <span class="text-red-400 font-bold text-xs flex-shrink-0 mt-0.5">T{{ $ep->season }}E{{ $ep->episode }}</span>
-                        <div class="flex-1 min-w-0">
-                            <p class="text-sm text-gray-200 truncate">{{ $ep->title ?: '—' }}</p>
-                            @if($ep->video_path)
-                            <p class="text-xs text-gray-600 truncate mt-0.5">{{ $ep->video_path }}</p>
-                            @endif
-                            @if($ep->video_path)
-                            <span class="text-xs {{ $ep->hasVideo() ? 'text-green-500' : 'text-red-400' }} mt-0.5 inline-block">
-                                {{ $ep->hasVideo() ? '✓ ficheiro ok' : '✗ não encontrado' }}
-                            </span>
-                            @endif
-                        </div>
-                        <form method="POST" action="{{ route('admin.episodes.destroy', $ep) }}" onsubmit="return confirm('Remover?')" class="flex-shrink-0">
-                            @csrf @method('DELETE')
-                            <button type="submit" class="text-gray-600 hover:text-red-400 text-xs transition px-2 py-1">✕</button>
-                        </form>
+                <div class="bg-gray-800/60 border border-white/[.05] rounded-xl px-3 py-2.5 episode-row" data-id="{{ $ep->id }}" data-season="{{ $ep->season }}">
+                    <div class="flex items-center gap-2">
+                        <input type="checkbox" class="ep-check rounded flex-shrink-0" data-id="{{ $ep->id }}"
+                            onchange="onCheckChange()">
+                        <span class="text-red-400 font-bold text-xs flex-shrink-0 w-12">T{{ $ep->season }}E{{ $ep->episode }}</span>
+                        <input type="text" value="{{ $ep->title }}" placeholder="Título"
+                            class="ep-title flex-1 bg-transparent border-b border-transparent hover:border-white/20 focus:border-blue-500 text-sm text-gray-200 focus:outline-none px-1 py-0.5 min-w-0 transition"
+                            data-id="{{ $ep->id }}" data-field="title">
+                        <input type="text" value="{{ $ep->video_path }}" placeholder="Caminho do vídeo"
+                            class="ep-path flex-1 bg-transparent border-b border-transparent hover:border-white/20 focus:border-blue-500 text-xs text-gray-500 focus:outline-none px-1 py-0.5 min-w-0 transition hidden md:block"
+                            data-id="{{ $ep->id }}" data-field="video_path">
+                        @if($ep->video_path && !$ep->isExternalUrl())
+                        <span class="text-xs flex-shrink-0 {{ $ep->hasVideo() ? 'text-green-500' : 'text-red-400' }}">
+                            {{ $ep->hasVideo() ? '✓' : '✗' }}
+                        </span>
+                        @endif
+                        <button onclick="deleteEp({{ $ep->id }}, this)" class="text-gray-600 hover:text-red-400 text-xs transition flex-shrink-0 px-1">✕</button>
                     </div>
                 </div>
                 @endforeach
@@ -149,6 +160,76 @@
 
 @push('scripts')
 <script>
+// Bulk episode editing
+const bulkUpdateRoute  = '{{ route('admin.series.episodes.bulk-update', $serie) }}';
+const bulkDestroyRoute = '{{ route('admin.series.episodes.bulk-destroy', $serie) }}';
+
+function onCheckChange() {
+    const checked = document.querySelectorAll('.ep-check:checked');
+    const bar = document.getElementById('bulk-bar');
+    document.getElementById('bulk-count').textContent = `${checked.length} seleccionado(s)`;
+    bar.style.display = checked.length > 0 ? 'flex' : 'none';
+}
+
+function selectSeason(season) {
+    document.querySelectorAll(`.ep-check`).forEach(cb => {
+        const row = cb.closest('.episode-row');
+        if (row?.dataset.season == season) { cb.checked = true; }
+    });
+    onCheckChange();
+}
+
+function clearSelection() {
+    document.querySelectorAll('.ep-check').forEach(cb => cb.checked = false);
+    onCheckChange();
+}
+
+async function bulkSave() {
+    const episodes = {};
+    document.querySelectorAll('.ep-check:checked').forEach(cb => {
+        const id = cb.dataset.id;
+        const row = cb.closest('.episode-row');
+        episodes[id] = {
+            title:      row.querySelector('.ep-title')?.value || '',
+            video_path: row.querySelector('.ep-path')?.value || '',
+        };
+    });
+    const res = await fetch(bulkUpdateRoute, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+        body: JSON.stringify({ episodes }),
+    });
+    const data = await res.json();
+    alert(`✓ ${data.updated} episódio(s) guardado(s).`);
+    clearSelection();
+}
+
+async function bulkDelete() {
+    const ids = [...document.querySelectorAll('.ep-check:checked')].map(cb => cb.dataset.id);
+    if (!confirm(`Eliminar ${ids.length} episódio(s)?`)) return;
+    const res = await fetch(bulkDestroyRoute, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+        body: JSON.stringify({ ids }),
+    });
+    const data = await res.json();
+    ids.forEach(id => document.querySelector(`.ep-check[data-id="${id}"]`)?.closest('.episode-row')?.remove());
+    clearSelection();
+    alert(`✓ ${data.deleted} episódio(s) eliminado(s).`);
+}
+
+async function deleteEp(id, btn) {
+    if (!confirm('Remover este episódio?')) return;
+    const res = await fetch(`/admin/episodes/${id}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrfToken },
+        body: JSON.stringify({ _method: 'DELETE' }),
+    });
+    if (res.ok || res.redirected) {
+        btn.closest('.episode-row').remove();
+    }
+}
+
 const scanRoute   = '{{ route('admin.episodes.scan') }}';
 const importRoute = '{{ route('admin.series.episodes.import', $serie) }}';
 @if($serie->tmdb_id)

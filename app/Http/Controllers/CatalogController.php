@@ -21,35 +21,48 @@ class CatalogController extends Controller
         $sort    = $request->input('sort', 'title'); // title, year, rating, added
         $order   = $request->input('order', 'asc');
 
-        $movies = ($type === 'series') ? collect() : Movie::query();
-        $series = ($type === 'movies') ? collect() : Serie::query();
+        $perPage = 24;
 
-        if (!($type === 'series')) {
-            if ($search) $movies->where(fn($q) => $q->where('title', 'like', "%{$search}%")->orWhere('original_title', 'like', "%{$search}%"));
-            if ($genre)  $movies->whereJsonContains('genres', $genre);
-            $movies = $this->applySortEloquent($movies, $sort, $order)->get();
+        $moviesQ = ($type === 'series') ? null : Movie::query();
+        $seriesQ = ($type === 'movies') ? null : Serie::query();
+
+        if ($moviesQ) {
+            if ($search) $moviesQ->where(fn($q) => $q->where('title', 'like', "%{$search}%")->orWhere('original_title', 'like', "%{$search}%"));
+            if ($genre)  $moviesQ->whereJsonContains('genres', $genre);
         }
 
-        if (!($type === 'movies')) {
-            if ($search) $series->where(fn($q) => $q->where('title', 'like', "%{$search}%")->orWhere('original_title', 'like', "%{$search}%"));
-            if ($genre)  $series->whereJsonContains('genres', $genre);
-            $series = $this->applySortEloquent($series, $sort, $order)->get();
+        if ($seriesQ) {
+            if ($search) $seriesQ->where(fn($q) => $q->where('title', 'like', "%{$search}%")->orWhere('original_title', 'like', "%{$search}%"));
+            if ($genre)  $seriesQ->whereJsonContains('genres', $genre);
         }
 
-        // Locale-based sort for title (SQLite doesn't do locale sorting)
-        if ($sort === 'title') {
-            $locale = app()->getLocale();
-            if ($movies instanceof \Illuminate\Support\Collection) {
-                $movies = $movies->sortBy(fn($m) => mb_strtolower($m->localTitle()));
-            }
-            if ($series instanceof \Illuminate\Support\Collection) {
-                $series = $series->sortBy(fn($s) => mb_strtolower($s->localTitle()));
-            }
-        }
+        // Collect and sort (title sort done in PHP for locale)
+        $movies = $moviesQ
+            ? ($sort === 'title'
+                ? $this->applySortEloquent($moviesQ, 'title', $order)->get()->sortBy(fn($m) => mb_strtolower($m->localTitle()))->values()
+                : $this->applySortEloquent($moviesQ, $sort, $order)->get())
+            : collect();
 
-        $watchedIds   = $this->getWatchedIds();
-        $watchlistIds = $this->getWatchlistIds();
-        $allGenres    = $this->getAllGenres();
+        $series = $seriesQ
+            ? ($sort === 'title'
+                ? $this->applySortEloquent($seriesQ, 'title', $order)->get()->sortBy(fn($s) => mb_strtolower($s->localTitle()))->values()
+                : $this->applySortEloquent($seriesQ, $sort, $order)->get())
+            : collect();
+
+        // Paginate
+        $page    = max(1, (int) $request->input('page', 1));
+        $movies  = new \Illuminate\Pagination\LengthAwarePaginator(
+            $movies->forPage($page, $perPage), $movies->count(), $perPage, $page,
+            ['query' => $request->except('page')]
+        );
+        $series  = new \Illuminate\Pagination\LengthAwarePaginator(
+            $series->forPage($page, $perPage), $series->count(), $perPage, $page,
+            ['query' => $request->except('page')]
+        );
+
+        $watchedIds       = $this->getWatchedIds();
+        $watchlistIds     = $this->getWatchlistIds();
+        $allGenres        = $this->getAllGenres();
         $continueWatching = $this->getContinueWatching();
 
         return view('catalog.index', compact(

@@ -163,8 +163,11 @@
                         <div class="px-4 py-2.5 border-b border-white/10">
                             <p class="text-xs text-gray-400 truncate">{{ auth()->user()->email }}</p>
                         </div>
+                        <a href="{{ route('profile.show') }}" class="block px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 transition">
+                            Perfil
+                        </a>
                         @if(auth()->user()->is_admin)
-                        <a href="{{ route('admin.movies.index') }}" class="block px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 transition">
+                        <a href="{{ route('admin.dashboard') }}" class="block px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 transition">
                             Administração
                         </a>
                         @endif

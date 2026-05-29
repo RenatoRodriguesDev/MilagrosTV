@@ -803,6 +803,18 @@ async function playWebTorrent(idx) {
         clearInterval(progressInterval);
         progressInterval = null;
         progress.style.width = '90%';
+
+        // Check for multiple video files — offer quality selection
+        let fileIndex = '';
+        try {
+            const infoRes  = await fetch(`${STREAM_SERVER}/info?magnet=${encodeURIComponent(magnet)}`);
+            const infoData = await infoRes.json();
+            if (infoData.videoFiles && infoData.videoFiles.length > 1) {
+                const choice = await showQualityPicker(infoData.videoFiles);
+                if (choice !== null) fileIndex = `&fileIndex=${choice}`;
+            }
+        } catch(_) {}
+
         status.textContent = `A iniciar: ${info.name || '...'} (${info.peers} peers)`;
 
         // Load subtitles from torrent (if any .srt/.ass files exist)
@@ -811,7 +823,7 @@ async function playWebTorrent(idx) {
         // Step 2: build stream URL — add ?transcode=1 for HEVC on browsers that need it
         const hevcFile = info.needsRemux && /\b(HEVC|X265|H\.?265|HEVC10)\b/i.test(info.file || '');
         const needsEncode = hevcFile && !browserSupportsHEVC();
-        const streamUrl = `${STREAM_SERVER}/stream?magnet=${encodeURIComponent(magnet)}${needsEncode ? '&transcode=1' : ''}`;
+        const streamUrl = `${STREAM_SERVER}/stream?magnet=${encodeURIComponent(magnet)}${needsEncode ? '&transcode=1' : ''}${fileIndex}`;
         currentStreamUrl = streamUrl;
         currentMagnet    = magnet;
         const player = getTorrentPlyr();
@@ -824,8 +836,17 @@ async function playWebTorrent(idx) {
 
         player.once('ready', () => {
             player.play().catch(() => {});
-            status.textContent   = '▶ A reproduzir via torrent stream';
             progress.style.width = '100%';
+            // Poll download speed every 3s
+            window._speedInterval = setInterval(async () => {
+                try {
+                    const r = await fetch(`${STREAM_SERVER}/info?magnet=${encodeURIComponent(magnet)}`);
+                    const d = await r.json();
+                    const dl = d.downloadSpeed || 0;
+                    const speed = dl > 1048576 ? (dl/1048576).toFixed(1)+' MB/s' : dl > 1024 ? (dl/1024).toFixed(0)+' KB/s' : dl+'B/s';
+                    status.textContent = `▶ ${speed} ↓ · ${d.peers} peers`;
+                } catch(_) {}
+            }, 3000);
         });
 
         player.on('error', () => {
@@ -840,8 +861,36 @@ async function playWebTorrent(idx) {
     }
 }
 
+function showQualityPicker(videoFiles) {
+    return new Promise(resolve => {
+        const fmt = b => b >= 1073741824 ? (b/1073741824).toFixed(1)+' GB' : (b/1048576).toFixed(0)+' MB';
+        const modal = document.createElement('div');
+        modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);z-index:9999;display:flex;align-items:center;justify-content:center;padding:16px;';
+        modal.innerHTML = `
+            <div style="background:#1f2937;border:1px solid rgba(255,255,255,.1);border-radius:16px;padding:20px;max-width:400px;width:100%;">
+                <p style="font-size:14px;font-weight:600;color:#fff;margin-bottom:12px;">Escolher qualidade</p>
+                <div style="display:flex;flex-direction:column;gap:6px;">
+                    ${videoFiles.map(f => `
+                        <button onclick="this.closest('[data-modal]').dispatchEvent(new CustomEvent('pick',{detail:${f.index}}))"
+                            style="background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.1);border-radius:10px;padding:10px 14px;color:#e5e7eb;text-align:left;cursor:pointer;font-size:13px;">
+                            <span style="font-weight:600;">${f.name}</span>
+                            <span style="color:#6b7280;margin-left:8px;">${fmt(f.size)}</span>
+                        </button>`).join('')}
+                </div>
+                <button onclick="this.closest('[data-modal]').dispatchEvent(new CustomEvent('pick',{detail:null}))"
+                    style="margin-top:10px;width:100%;background:transparent;border:0;color:#6b7280;font-size:13px;cursor:pointer;padding:8px;">
+                    Cancelar (usar padrão)
+                </button>
+            </div>`;
+        modal.setAttribute('data-modal', '');
+        modal.addEventListener('pick', e => { document.body.removeChild(modal); resolve(e.detail); });
+        document.body.appendChild(modal);
+    });
+}
+
 function stopWebTorrent() {
     if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
+    if (window._speedInterval) { clearInterval(window._speedInterval); window._speedInterval = null; }
     if (torrentPlyr) { torrentPlyr.pause(); }
     if (window._subTick && torrentPlyr) torrentPlyr.media.removeEventListener('timeupdate', window._subTick);
     subtitleCues = []; subtitleOverlay = null; subtitleOffset = 0; subtitleSize = 18; subtitleBg = false; activeSubFileId = null;

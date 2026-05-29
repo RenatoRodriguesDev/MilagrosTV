@@ -157,37 +157,43 @@
     </section>
     @endif
 
-    @if($type !== 'series' && $movies->count() > 0)
+    @if($type !== 'series' && $movies->total() > 0)
     <section class="mb-12 fade-in">
         <div class="flex items-center gap-3 mb-5">
             <span class="text-red-500 text-lg">🎥</span>
             <h2 class="text-lg font-bold text-white">{{ __('catalog.movies') }}</h2>
-            <span class="bg-white/10 text-gray-400 text-xs px-2 py-0.5 rounded-full">{{ $movies->count() }}</span>
+            <span class="bg-white/10 text-gray-400 text-xs px-2 py-0.5 rounded-full">{{ $movies->total() }}</span>
         </div>
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
             @foreach($movies as $movie)
                 @include('catalog._card', ['item' => $movie, 'type' => 'movie'])
             @endforeach
         </div>
+        @if($movies->hasPages())
+        <div class="flex justify-center mt-6">{{ $movies->links('catalog._pagination') }}</div>
+        @endif
     </section>
     @endif
 
-    @if($type !== 'movies' && $series->count() > 0)
+    @if($type !== 'movies' && $series->total() > 0)
     <section class="mb-12 fade-in">
         <div class="flex items-center gap-3 mb-5">
             <span class="text-red-500 text-lg">📺</span>
             <h2 class="text-lg font-bold text-white">{{ __('catalog.series') }}</h2>
-            <span class="bg-white/10 text-gray-400 text-xs px-2 py-0.5 rounded-full">{{ $series->count() }}</span>
+            <span class="bg-white/10 text-gray-400 text-xs px-2 py-0.5 rounded-full">{{ $series->total() }}</span>
         </div>
         <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
             @foreach($series as $serie)
                 @include('catalog._card', ['item' => $serie, 'type' => 'serie'])
             @endforeach
         </div>
+        @if($series->hasPages())
+        <div class="flex justify-center mt-6">{{ $series->links('catalog._pagination') }}</div>
+        @endif
     </section>
     @endif
 
-    @if($movies->count() === 0 && $series->count() === 0)
+    @if($movies->total() === 0 && $series->total() === 0)
     <div class="text-center py-32 fade-in">
         <p class="text-6xl mb-4 opacity-50">🔍</p>
         <p class="text-gray-500 text-lg">{{ __('catalog.no_results') }}</p>
