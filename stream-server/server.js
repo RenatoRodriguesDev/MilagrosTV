@@ -292,9 +292,15 @@ app.get('/stream', async (req, res) => {
 
             let ffArgs, ffStdio, src;
             if (diskPath) {
-                // Disk path: fast startup, seeking support, no stdin overhead
                 const seekArgs = seekSec > 0 ? ['-ss', String(seekSec)] : [];
-                ffArgs  = ['-fflags', 'nobuffer', ...seekArgs, '-i', diskPath, ...videoCodec];
+                ffArgs  = [
+                    '-fflags',         'nobuffer+discardcorrupt',
+                    '-analyzeduration','1000000',
+                    '-probesize',      '1000000',
+                    ...seekArgs,
+                    '-i', diskPath,
+                    ...videoCodec
+                ];
                 ffStdio = ['ignore', 'pipe', 'pipe'];
             } else {
                 // Stdin pipe fallback: slower startup, no seeking

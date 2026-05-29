@@ -842,11 +842,15 @@ async function playWebTorrent(idx) {
 
         // Seeking: restart stream at new position using ?ss=
         if (info.canSeek) {
+            // Remove previous listener to avoid accumulation across multiple plays
+            if (player.media._seekHandler) {
+                player.media.removeEventListener('seeking', player.media._seekHandler);
+            }
             let isSeeking = false;
-            player.media.addEventListener('seeking', function onSeek() {
-                if (isSeeking) return; // guard against loop
+            player.media._seekHandler = function() {
+                if (isSeeking) return;
                 const t = Math.floor(player.media.currentTime);
-                if (t < 2) return;
+                if (t < 2) return; // ignore initial load seeks
                 clearTimeout(player._seekT);
                 player._seekT = setTimeout(() => {
                     isSeeking = true;
@@ -856,10 +860,12 @@ async function playWebTorrent(idx) {
                         player.play().catch(() => {});
                         applyDurationOverride(player.media, info.duration);
                     });
-                    player.media.addEventListener('loadedmetadata', () => applyDurationOverride(player.media, info.duration), { once: true });
+                    player.media.addEventListener('loadedmetadata',
+                        () => applyDurationOverride(player.media, info.duration), { once: true });
                     player.source = { type: 'video', sources: [{ src: seekUrl, type: 'video/mp4' }] };
-                }, 400);
-            });
+                }, 500);
+            };
+            player.media.addEventListener('seeking', player.media._seekHandler);
         }
 
         player.once('ready', () => {
