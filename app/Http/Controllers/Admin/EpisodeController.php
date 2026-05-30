@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\Episode;
 use App\Models\Serie;
+use App\Http\Controllers\PushController;
 use App\Models\UserNotification;
 use App\Services\TmdbService;
 use Illuminate\Http\Request;
@@ -34,12 +35,9 @@ class EpisodeController extends Controller
 
         if ($isNew && !empty($data['video_path'])) {
             $label = $data['title'] ?? "T{$data['season']}E{$data['episode']}";
-            UserNotification::notifyAll(
-                'new_episode',
-                $serie->title,
-                "Novo episódio disponível: {$label}",
-                route('catalog.serie', $serie)
-            );
+            $url   = route('catalog.serie', $serie);
+            UserNotification::notifyAll('new_episode', $serie->title, "Novo episódio disponível: {$label}", $url);
+            PushController::sendToAll("📺 {$serie->title}", "Novo episódio: {$label}", $url);
         }
 
         return back()->with('success', 'Episódio guardado.');

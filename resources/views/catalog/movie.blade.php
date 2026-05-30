@@ -70,6 +70,13 @@
             @endif
 
             <div class="flex flex-wrap gap-2">
+                @if($movie->video_path && $movie->hasVideo())
+                <button onclick="playLocalMovie()"
+                    class="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-5 py-2 rounded-lg text-sm font-semibold transition">
+                    ▶ {{ __('serie.play') }}
+                </button>
+                @endif
+
                 <button onclick="openTorrents('{{ addslashes($movie->original_title ?? $movie->title) }}', 'movie')"
                     class="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
                     {{ __('torrent.find_streams') }}
@@ -92,6 +99,21 @@
         </div>
     </div>
 </div>
+
+{{-- Local movie player modal --}}
+@if($movie->video_path && $movie->hasVideo())
+<div id="movie-player-modal" class="hidden fixed inset-0 z-[999] flex items-center justify-center p-4" style="background:#000;">
+    <div class="w-full max-w-5xl">
+        <div class="flex items-center justify-between mb-3">
+            <p class="text-gray-300 text-sm font-medium">{{ $movie->localTitle() }}</p>
+            <button onclick="closeMoviePlayer()" class="text-gray-400 hover:text-white transition text-sm">{{ __('common.close') }}</button>
+        </div>
+        <div id="movie-plyr-wrap" style="display:block;">
+            <video id="movie-video-player" controls playsinline style="width:100%;border-radius:12px;"></video>
+        </div>
+    </div>
+</div>
+@endif
 
 {{-- Trailer modal --}}
 @if($movie->trailer_url)
@@ -229,6 +251,40 @@
 .sub-ctrl-btn.active { background: rgba(255,255,255,0.2); color: #fff; }
 </style>
 <script>
+@if($movie->video_path && $movie->hasVideo())
+// Local movie player
+let moviePlyr = null;
+
+function playLocalMovie() {
+    const modal = document.getElementById('movie-player-modal');
+    if (!moviePlyr) {
+        moviePlyr = new Plyr('#movie-video-player', {
+            controls: ['play-large','play','rewind','fast-forward','progress','current-time','duration','mute','volume','settings','fullscreen'],
+            settings: ['speed'],
+            speed: { selected: 1, options: [0.75, 1, 1.25, 1.5, 2] },
+            fullscreen: { enabled: true, fallback: true, iosNative: false },
+        });
+    }
+    moviePlyr.source = {
+        type: 'video',
+        sources: [{ src: '{{ route('video.movie', $movie) }}', type: 'video/mp4' }]
+    };
+    moviePlyr.once('ready', () => moviePlyr.play());
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function closeMoviePlayer() {
+    if (moviePlyr) moviePlyr.pause();
+    document.getElementById('movie-player-modal').classList.add('hidden');
+    document.body.style.overflow = '';
+}
+
+document.getElementById('movie-player-modal')?.addEventListener('click', function(e) {
+    if (e.target === this) closeMoviePlayer();
+});
+@endif
+
 // Watchlist toggle (detail page)
 async function toggleWatchlistDetail(btn) {
     const type = btn.dataset.type, id = parseInt(btn.dataset.id);

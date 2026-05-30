@@ -43,7 +43,14 @@ services:
       - "9090:9090"
     restart: unless-stopped
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+
 volumes:
   db_data:
   storage_data:
   jackett_data:
+  redis_data:

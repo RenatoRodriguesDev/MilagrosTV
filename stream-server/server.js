@@ -3,7 +3,7 @@ import cors    from 'cors';
 import WebTorrent from 'webtorrent';
 import { extname, join } from 'path';
 import { spawn, execFile } from 'child_process';
-import { existsSync }      from 'fs';
+import { existsSync, mkdirSync, readdirSync } from 'fs';
 import { Transform }       from 'stream';
 
 const TRANSCODE_EXT = new Set(['.mkv', '.avi', '.mov', '.ts']);
@@ -539,6 +539,94 @@ app.get('/stop', (req, res) => {
         durationCache.delete(h);
     }
     res.json({ ok: true });
+});
+
+// HLS: generate segments for proper seeking
+const hlsJobs = new Map(); // infoHash → { process, dir, ready }
+
+app.get('/hls/start', async (req, res) => {
+    const { magnet, transcode } = req.query;
+    if (!magnet) return res.status(400).json({ error: 'magnet required' });
+
+    try {
+        const torrent  = await getOrAdd(decodeURIComponent(magnet));
+        const file     = torrent.files.find(f => VIDEO_EXT.includes(extname(f.name).toLowerCase()));
+        if (!file) return res.status(404).json({ error: 'No video file found' });
+
+        const hash    = torrent.infoHash;
+        const hlsDir  = `/tmp/hls/${hash}`;
+        const playlist = `${hlsDir}/index.m3u8`;
+
+        // Return existing job if still running
+        if (hlsJobs.has(hash) && existsSync(playlist)) {
+            const job = hlsJobs.get(hash);
+            return res.json({ ready: job.ready, playlistUrl: `/hls/file/${hash}/index.m3u8` });
+        }
+
+        // Find disk path
+        const candidates = [join('/tmp/torrents', file.path), join('/tmp/torrents', file.name)];
+        const diskPath   = candidates.find(p => existsSync(p));
+        if (!diskPath) return res.status(503).json({ error: 'File not on disk yet' });
+
+        mkdirSync(hlsDir, { recursive: true });
+
+        const fullTranscode = transcode === '1';
+        const videoCodec = fullTranscode
+            ? ['-c:v', 'libx264', '-preset', 'veryfast', '-crf', '26']
+            : ['-c:v', 'copy'];
+
+        const ff = spawn('ffmpeg', [
+            '-fflags', 'nobuffer',
+            '-analyzeduration', '1000000',
+            '-i', diskPath,
+            ...videoCodec,
+            '-c:a', 'aac', '-b:a', '128k', '-ac', '2',
+            '-f', 'hls',
+            '-hls_time', '6',
+            '-hls_list_size', '0',
+            '-hls_flags', 'independent_segments',
+            '-hls_segment_filename', `${hlsDir}/seg%05d.ts`,
+            playlist
+        ], { stdio: ['ignore', 'ignore', 'pipe'] });
+
+        const job = { process: ff, dir: hlsDir, ready: false };
+        hlsJobs.set(hash, job);
+
+        ff.stderr.on('data', d => {
+            if (!job.ready && existsSync(playlist)) {
+                const segs = readdirSync(hlsDir).filter(f => f.endsWith('.ts'));
+                if (segs.length >= 2) job.ready = true;
+            }
+        });
+
+        ff.on('close', () => {
+            if (hlsJobs.get(hash) === job) {
+                job.ready = true;
+                job.process = null;
+            }
+        });
+
+        // Wait up to 30s for first 2 segments
+        let waited = 0;
+        while (!job.ready && waited < 30000) {
+            await new Promise(r => setTimeout(r, 500));
+            waited += 500;
+        }
+
+        res.json({ ready: job.ready, playlistUrl: `/hls/file/${hash}/index.m3u8` });
+    } catch(err) {
+        res.status(503).json({ error: err.message });
+    }
+});
+
+app.get('/hls/file/:hash/:file(*)', (req, res) => {
+    const filePath = join('/tmp/hls', req.params.hash, req.params.file);
+    if (!existsSync(filePath)) return res.status(404).send('Not found');
+    const ext = extname(filePath).toLowerCase();
+    const mime = ext === '.m3u8' ? 'application/vnd.apple.mpegurl' : 'video/mp2t';
+    res.setHeader('Content-Type', mime);
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.sendFile(filePath);
 });
 
 app.get('/health', (_, res) => res.json({ ok: true, torrents: client.torrents.length }));

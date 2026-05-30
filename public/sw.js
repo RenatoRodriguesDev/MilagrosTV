@@ -1,4 +1,4 @@
-const CACHE = 'milagrostv-v1';
+const CACHE = 'milagrostv-v2';
 
 const SHELL = [
     '/',
@@ -21,6 +21,34 @@ self.addEventListener('activate', e => {
         caches.keys().then(keys =>
             Promise.all(keys.filter(k => k !== CACHE).map(k => caches.delete(k)))
         ).then(() => self.clients.claim())
+    );
+});
+
+// Push notification received
+self.addEventListener('push', e => {
+    if (!e.data) return;
+    let data = {};
+    try { data = e.data.json(); } catch(_) { data = { title: 'MilagrosTV', body: e.data.text() }; }
+    e.waitUntil(
+        self.registration.showNotification(data.title || 'MilagrosTV', {
+            body:  data.body  || '',
+            icon:  '/icon.svg',
+            badge: '/icon.svg',
+            data:  { url: data.url || '/' },
+        })
+    );
+});
+
+// Notification click
+self.addEventListener('notificationclick', e => {
+    e.notification.close();
+    e.waitUntil(
+        clients.matchAll({ type: 'window' }).then(wins => {
+            const url = e.notification.data?.url || '/';
+            const existing = wins.find(w => w.url.includes(self.location.origin));
+            if (existing) { existing.focus(); existing.navigate(url); }
+            else           clients.openWindow(url);
+        })
     );
 });
 

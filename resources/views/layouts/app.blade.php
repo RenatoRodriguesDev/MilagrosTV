@@ -253,6 +253,7 @@
     </div>
     @endauth
 
+    <script src="/js/hls.min.js"></script>
     <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
     @stack('scripts')
 
@@ -286,6 +287,40 @@
         });
 
         @auth
+        // Push notifications subscription
+        async function subscribePush() {
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+            try {
+                const reg  = await navigator.serviceWorker.ready;
+                const perm = await Notification.requestPermission();
+                if (perm !== 'granted') return;
+                const vapidRes = await fetch('/push/vapid-key');
+                const { publicKey } = await vapidRes.json();
+                const sub = await reg.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(publicKey),
+                });
+                const keys = sub.toJSON().keys;
+                await fetch('/push/subscribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
+                    body: JSON.stringify({ endpoint: sub.endpoint, publicKey: keys?.p256dh, authToken: keys?.auth }),
+                });
+            } catch(e) {}
+        }
+
+        function urlBase64ToUint8Array(base64String) {
+            const pad = '='.repeat((4 - base64String.length % 4) % 4);
+            const b64 = (base64String + pad).replace(/-/g, '+').replace(/_/g, '/');
+            const raw = atob(b64);
+            return Uint8Array.from([...raw].map(c => c.charCodeAt(0)));
+        }
+
+        // Auto-subscribe after page loads (if not already subscribed)
+        navigator.serviceWorker?.ready.then(reg =>
+            reg.pushManager.getSubscription().then(sub => { if (!sub) subscribePush(); })
+        ).catch(() => {});
+
         // Search overlay
         function toggleSearch() {
             const overlay = document.getElementById('search-overlay');

@@ -94,6 +94,17 @@
                 </div>
                 @endif
 
+                @if($type === 'movie')
+                <div class="sm:col-span-2">
+                    <label class="block text-sm text-gray-400 mb-1">Caminho do vídeo local</label>
+                    <input type="text" name="video_path" id="field-video_path"
+                        value="{{ old('video_path', $item?->video_path) }}"
+                        placeholder="Ex: Filmes/Interstellar.mkv"
+                        class="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-red-500">
+                    <p class="text-xs text-gray-600 mt-1">Relativo à pasta <code>videos/</code></p>
+                </div>
+                @endif
+
                 <div class="sm:col-span-2">
                     <label class="block text-sm text-gray-400 mb-1">URL do Poster</label>
                     <input type="url" name="poster_url" id="field-poster_url"

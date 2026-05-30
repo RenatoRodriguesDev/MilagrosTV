@@ -341,7 +341,7 @@ document.getElementById('trailer-modal')?.addEventListener('click', function(e) 
                 @endif
             </div>
             @else
-            <button onclick="event.stopPropagation(); openTorrents('{{ addslashes($serie->original_title ?? $serie->title) }} S{{ str_pad($ep->season,2,'0',STR_PAD_LEFT) }}E{{ str_pad($ep->episode,2,'0',STR_PAD_LEFT) }}', 'series')"
+            <button onclick="event.stopPropagation(); openTorrents('{{ addslashes($serie->original_title ?? $serie->title) }} S{{ str_pad($ep->season,2,'0',STR_PAD_LEFT) }}E{{ str_pad($ep->episode,2,'0',STR_PAD_LEFT) }}', 'series', {{ $ep->id }})"
                 class="flex-shrink-0 text-gray-500 hover:text-orange-400 text-xs transition flex items-center gap-1">
                 🧲 <span>{{ __('torrent.find') }}</span>
             </button>
@@ -599,7 +599,10 @@ let torrentType      = 'series';
 let allResults       = [];
 let activeLangFilter = null;
 
-function openTorrents(query, type = 'series') {
+let _torrentEpId = null;
+
+function openTorrents(query, type = 'series', episodeId = null) {
+    _torrentEpId = episodeId;
     torrentType = type;
     document.getElementById('torrent-search-input').value = query;
     document.getElementById('torrent-query-label').textContent = query;
@@ -838,40 +841,85 @@ async function playWebTorrent(idx) {
         }
 
         const player = getTorrentPlyr();
-        loadStream(player, baseUrl, 0);
 
-        // Seeking: restart stream at new position using ?ss=
-        if (info.canSeek) {
-            // Remove previous listener to avoid accumulation across multiple plays
-            if (player.media._seekHandler) {
-                player.media.removeEventListener('seeking', player.media._seekHandler);
-            }
-            let isSeeking = false;
-            player.media._seekHandler = function() {
-                if (isSeeking) return;
-                const t = Math.floor(player.media.currentTime);
-                if (t < 2) return; // ignore initial load seeks
-                clearTimeout(player._seekT);
-                player._seekT = setTimeout(() => {
-                    isSeeking = true;
-                    const seekUrl = `${baseUrl}&ss=${t}`;
-                    player.once('ready', () => {
-                        isSeeking = false;
+        // Use HLS if file is on disk (full seeking support)
+        if (info.canSeek && typeof Hls !== 'undefined' && Hls.isSupported()) {
+            status.textContent = 'A gerar segmentos HLS... (pode demorar)';
+            try {
+                const hlsRes  = await fetch(`${STREAM_SERVER}/hls/start?magnet=${encodeURIComponent(magnet)}${needsEncode ? '&transcode=1' : ''}`);
+                const hlsData = await hlsRes.json();
+                if (hlsData.playlistUrl) {
+                    const playlistUrl = `${STREAM_SERVER.replace('//', '//').split(':').slice(0,2).join(':')}:9090${hlsData.playlistUrl}`;
+                    // Destroy existing HLS instance
+                    if (player.media._hls) { player.media._hls.destroy(); }
+                    const hls = new Hls({ enableWorker: true, lowLatencyMode: false });
+                    player.media._hls = hls;
+                    hls.loadSource(playlistUrl);
+                    hls.attachMedia(player.media);
+                    hls.on(Hls.Events.MANIFEST_PARSED, () => {
+                        if (info.duration > 0) applyDurationOverride(player.media, info.duration);
                         player.play().catch(() => {});
-                        applyDurationOverride(player.media, info.duration);
                     });
-                    player.media.addEventListener('loadedmetadata',
-                        () => applyDurationOverride(player.media, info.duration), { once: true });
-                    player.source = { type: 'video', sources: [{ src: seekUrl, type: 'video/mp4' }] };
-                }, 500);
-            };
-            player.media.addEventListener('seeking', player.media._seekHandler);
+                    status.textContent = `▶ HLS · seek disponível`;
+                    progress.style.width = '100%';
+                } else {
+                    loadStream(player, baseUrl, 0);
+                }
+            } catch(_) {
+                loadStream(player, baseUrl, 0);
+            }
+        } else {
+            loadStream(player, baseUrl, 0);
+
+            // Fallback: restart-based seeking
+            if (info.canSeek) {
+                if (player.media._seekHandler) player.media.removeEventListener('seeking', player.media._seekHandler);
+                let isSeeking = false;
+                player.media._seekHandler = function() {
+                    if (isSeeking) return;
+                    const t = Math.floor(player.media.currentTime);
+                    if (t < 2) return;
+                    clearTimeout(player._seekT);
+                    player._seekT = setTimeout(() => {
+                        isSeeking = true;
+                        const seekUrl = `${baseUrl}&ss=${t}`;
+                        player.once('ready', () => { isSeeking = false; player.play().catch(() => {}); applyDurationOverride(player.media, info.duration); });
+                        player.media.addEventListener('loadedmetadata', () => applyDurationOverride(player.media, info.duration), { once: true });
+                        player.source = { type: 'video', sources: [{ src: seekUrl, type: 'video/mp4' }] };
+                    }, 500);
+                };
+                player.media.addEventListener('seeking', player.media._seekHandler);
+            }
         }
 
         player.once('ready', () => {
             player.play().catch(() => {});
             applyDurationOverride(player.media, info.duration);
             progress.style.width = '100%';
+
+            // Save torrent progress to server if linked to an episode
+            if (_torrentEpId) {
+                const csrf = document.querySelector('meta[name="csrf-token"]').content;
+                window._torrentProgressInterval = setInterval(() => {
+                    const t = Math.floor(player.media.currentTime || 0);
+                    if (t > 10) {
+                        fetch(`/progress/${_torrentEpId}`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
+                            body: JSON.stringify({ position: t, duration: Math.floor(info.duration || 0), completed: false }),
+                            keepalive: true,
+                        }).catch(() => {});
+                    }
+                }, 15000);
+                player.media.addEventListener('ended', () => {
+                    fetch(`/progress/${_torrentEpId}`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
+                        body: JSON.stringify({ position: Math.floor(info.duration || 0), duration: Math.floor(info.duration || 0), completed: true }),
+                        keepalive: true,
+                    }).catch(() => {});
+                }, { once: true });
+            }
 
             // Poll download speed every 3s
             window._speedInterval = setInterval(async () => {
@@ -927,6 +975,7 @@ function showQualityPicker(videoFiles) {
 function stopWebTorrent() {
     if (progressInterval) { clearInterval(progressInterval); progressInterval = null; }
     if (window._speedInterval) { clearInterval(window._speedInterval); window._speedInterval = null; }
+    if (window._torrentProgressInterval) { clearInterval(window._torrentProgressInterval); window._torrentProgressInterval = null; }
     if (torrentPlyr) { torrentPlyr.pause(); }
     if (window._subTick && torrentPlyr) torrentPlyr.media.removeEventListener('timeupdate', window._subTick);
     subtitleCues = []; subtitleOverlay = null; subtitleOffset = 0; subtitleSize = 18; subtitleBg = false; activeSubFileId = null;

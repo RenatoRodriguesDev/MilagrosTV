@@ -179,9 +179,12 @@
 @endsection
 
 @push('scripts')
-<script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+<script src="/js/chart.min.js"></script>
 <script>
 // Views chart
+if (typeof Chart === 'undefined') {
+    document.getElementById('viewsChart').parentElement.innerHTML = '<p class="text-center text-gray-600 py-8 text-sm">Chart.js não carregou.</p>';
+} else {
 const ctx   = document.getElementById('viewsChart').getContext('2d');
 const days  = @json(array_keys($days->toArray()));
 const views = @json(array_values($days->toArray()));
@@ -208,6 +211,7 @@ new Chart(ctx, {
         }
     }
 });
+} // end Chart.isSupported check
 
 // File detection
 async function loadUnlinkedFiles() {

@@ -68,6 +68,10 @@
             </a>
 
             <p class="text-[10px] text-gray-600 font-semibold uppercase tracking-widest px-3 pt-4 pb-1.5">Sistema</p>
+            <a href="{{ route('admin.monitor.index') }}" onclick="closeSidebar()" class="nav-link {{ request()->routeIs('admin.monitor.*') ? 'active' : '' }}">
+                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/></svg>
+                Monitor
+            </a>
             <a href="{{ route('admin.logs.index') }}" onclick="closeSidebar()" class="nav-link {{ request()->routeIs('admin.logs.*') ? 'active' : '' }}">
                 <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
                 Logs

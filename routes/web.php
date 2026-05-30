@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\CatalogController;
+use App\Http\Controllers\PushController;
 use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SearchController;
@@ -15,6 +16,7 @@ use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\EpisodeController;
 use App\Http\Controllers\Admin\FileDetectionController;
 use App\Http\Controllers\Admin\LogController;
+use App\Http\Controllers\Admin\MonitorController;
 use App\Http\Controllers\Admin\MovieController;
 use App\Http\Controllers\Admin\SerieController;
 use App\Http\Controllers\Admin\StorageController;
@@ -48,6 +50,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/movies/{movie}', [CatalogController::class, 'movie'])->name('catalog.movie');
     Route::post('/watched', [CatalogController::class, 'toggleWatched'])->name('catalog.watched');
     Route::get('/video/episode/{episode}', [VideoController::class, 'stream'])->name('video.episode');
+    Route::get('/video/movie/{movie}', [VideoController::class, 'streamMovie'])->name('video.movie');
     Route::get('/torrents/search', [TorrentController::class, 'search'])->name('torrents.search');
     Route::get('/subtitles/search', [SubtitleController::class, 'search'])->name('subtitles.search');
     Route::get('/subtitles/download', [SubtitleController::class, 'download'])->name('subtitles.download');
@@ -68,6 +71,11 @@ Route::middleware('auth')->group(function () {
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/read', [NotificationController::class, 'markRead'])->name('notifications.read');
     Route::get('/notifications/count', [NotificationController::class, 'unreadCount'])->name('notifications.count');
+
+    // Push notifications
+    Route::get('/push/vapid-key', [PushController::class, 'vapidKey'])->name('push.vapid-key');
+    Route::post('/push/subscribe', [PushController::class, 'subscribe'])->name('push.subscribe');
+    Route::post('/push/unsubscribe', [PushController::class, 'unsubscribe'])->name('push.unsubscribe');
 });
 
 // Admin - autenticação
@@ -96,6 +104,10 @@ Route::prefix('admin')->name('admin.')->middleware(\App\Http\Middleware\AdminAut
     // Storage
     Route::get('/storage', [StorageController::class, 'index'])->name('storage.index');
     Route::delete('/storage/file', [StorageController::class, 'destroy'])->name('storage.destroy');
+
+    // Monitor
+    Route::get('/monitor', [MonitorController::class, 'index'])->name('monitor.index');
+    Route::get('/monitor/stats', [MonitorController::class, 'stats'])->name('monitor.stats');
 
     // Episódios bulk
     Route::post('/series/{serie}/episodes/bulk-update', [EpisodeController::class, 'bulkUpdate'])->name('series.episodes.bulk-update');

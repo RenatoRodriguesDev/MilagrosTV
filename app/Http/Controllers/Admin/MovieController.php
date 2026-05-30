@@ -41,7 +41,7 @@ class MovieController extends Controller
 
         $data = $request->only([
             'title', 'original_title', 'year', 'synopsis',
-            'poster_url', 'tmdb_id', 'rating', 'duration',
+            'poster_url', 'video_path', 'tmdb_id', 'rating', 'duration',
         ]);
 
         $data['genres'] = array_filter(array_map('trim', explode(',', $request->input('genres', ''))));
@@ -67,7 +67,7 @@ class MovieController extends Controller
 
         $data = $request->only([
             'title', 'original_title', 'year', 'synopsis',
-            'poster_url', 'tmdb_id', 'rating', 'duration',
+            'poster_url', 'video_path', 'tmdb_id', 'rating', 'duration',
         ]);
 
         $data['genres'] = array_filter(array_map('trim', explode(',', $request->input('genres', ''))));

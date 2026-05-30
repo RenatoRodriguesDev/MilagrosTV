@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Episode;
+use App\Models\Movie;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class VideoController extends Controller
@@ -11,6 +12,21 @@ class VideoController extends Controller
     {
         $path = storage_path('app/videos/' . $episode->video_path);
         abort_unless($episode->video_path && file_exists($path), 404);
+
+        $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
+
+        if ($this->needsTranscode($ext, $path)) {
+            return $this->streamTranscoded($path);
+        }
+
+        return $this->streamDirect($path, $ext);
+    }
+
+    public function streamMovie(Movie $movie): StreamedResponse
+    {
+        abort_unless($movie->video_path, 404);
+        $path = storage_path('app/videos/' . $movie->video_path);
+        abort_unless(file_exists($path), 404);
 
         $ext = strtolower(pathinfo($path, PATHINFO_EXTENSION));
 
