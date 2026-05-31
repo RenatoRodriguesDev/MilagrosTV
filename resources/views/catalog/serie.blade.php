@@ -5,7 +5,7 @@
 @section('content')
 
 {{-- Hero --}}
-<div class="relative min-h-[50vh] flex items-end overflow-hidden">
+<div class="relative min-h-[50vh] flex items-end overflow-hidden w-full">
     {{-- Blurred background --}}
     @if($serie->poster_url)
     <div class="absolute inset-0">
@@ -19,7 +19,7 @@
     @endif
 
     {{-- Content --}}
-    <div class="relative max-w-5xl mx-auto px-6 pt-28 pb-10 w-full flex gap-8 items-end">
+    <div class="relative max-w-5xl mx-auto px-4 sm:px-6 pt-28 pb-10 w-full flex gap-4 sm:gap-8 items-end min-w-0">
 
         {{-- Poster --}}
         @if($serie->poster_url)
@@ -119,7 +119,7 @@ document.getElementById('trailer-modal')?.addEventListener('click', function(e) 
 @endif
 
 {{-- Main content --}}
-<div class="max-w-5xl mx-auto px-6 pb-20">
+<div class="max-w-5xl mx-auto px-4 sm:px-6 pb-20">
 
     @if($episodes->isEmpty())
     <div class="text-center py-20 text-gray-600">

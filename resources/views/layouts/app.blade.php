@@ -27,7 +27,7 @@
     </script>
     <style>
         * { font-family: 'Inter', sans-serif; }
-        body { background-color: #0a0a0a; overflow-x: hidden; }
+        body { background-color: #0a0a0a; }
 
         /* Navbar scroll effect */
         #navbar { transition: background 0.3s, box-shadow 0.3s; }

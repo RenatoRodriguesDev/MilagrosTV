@@ -10,7 +10,7 @@
 
 {{-- Hero banner --}}
 @if($featured && !$search && !$genre)
-<div class="relative h-[55vh] min-h-[360px] flex items-end overflow-hidden">
+<div class="relative h-[55vh] min-h-[360px] flex items-end overflow-hidden w-full">
     {{-- Background --}}
     @if($featured->poster_url)
     <div class="absolute inset-0">
@@ -58,54 +58,56 @@
 {{-- Filter bar --}}
 <div class="sticky top-14 z-40 bg-[#0a0a0a]/95 backdrop-blur border-b border-white/5 px-4 py-3">
     <div class="max-w-7xl mx-auto">
-        <form method="GET" action="{{ route('catalog.index') }}">
-            {{-- Row 1: search + genre --}}
-            <div class="flex gap-2 mb-2">
-                <div class="relative flex-1 min-w-0">
-                    <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs">🔍</span>
-                    <input type="text" name="search" value="{{ $search }}"
-                        placeholder="{{ __('catalog.search_placeholder') }}"
-                        class="search-input bg-white/5 border border-white/10 text-white rounded-lg pl-8 pr-3 py-2 text-sm w-full focus:outline-none focus:border-red-500/50 transition placeholder-gray-500">
-                </div>
-                <select name="genre" class="bg-white/5 border border-white/10 text-white rounded-lg px-2 py-2 text-sm focus:outline-none focus:border-red-500/50 transition flex-shrink-0 max-w-[140px]">
-                    <option value="">{{ __('catalog.all_genres') }}</option>
-                    @foreach($allGenres as $g)
-                        <option value="{{ $g }}" @selected($genre === $g) class="bg-gray-900">{{ $g }}</option>
-                    @endforeach
-                </select>
+        <form method="GET" action="{{ route('catalog.index') }}" class="flex flex-wrap gap-2 items-center">
+
+            {{-- Search --}}
+            <div class="relative w-full sm:w-52">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs">🔍</span>
+                <input type="text" name="search" value="{{ $search }}"
+                    placeholder="{{ __('catalog.search_placeholder') }}"
+                    class="search-input bg-white/5 border border-white/10 text-white rounded-lg pl-8 pr-3 py-2 text-sm w-full focus:outline-none focus:border-red-500/50 transition placeholder-gray-500">
             </div>
 
-            {{-- Row 2: type tabs + sort + filter btn --}}
-            <div class="flex gap-2 items-center">
-                <div class="flex rounded-lg overflow-hidden border border-white/10 text-sm flex-shrink-0">
-                    @foreach(['all' => __('catalog.all'), 'movies' => __('catalog.movies'), 'series' => __('catalog.series')] as $val => $label)
-                    <a href="{{ request()->fullUrlWithQuery(['type' => $val]) }}"
-                       class="px-3 py-1.5 font-medium transition {{ $type === $val ? 'bg-red-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white' }}">
-                        {{ $label }}
-                    </a>
-                    @endforeach
-                </div>
-                <select name="sort" onchange="this.form.submit()"
-                    class="bg-white/5 border border-white/10 text-white rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:border-red-500/50 transition flex-1 min-w-0">
-                    <option value="title"  @selected($sort==='title')  class="bg-gray-900">A-Z</option>
-                    <option value="year"   @selected($sort==='year')   class="bg-gray-900">{{ __('catalog.sort_year') ?? 'Ano' }}</option>
-                    <option value="rating" @selected($sort==='rating') class="bg-gray-900">★ {{ __('catalog.sort_rating') ?? 'Nota' }}</option>
-                    <option value="added"  @selected($sort==='added')  class="bg-gray-900">{{ __('catalog.sort_added') ?? 'Recentes' }}</option>
-                </select>
-                <input type="hidden" name="order" value="{{ $order }}">
-                <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-3 py-1.5 rounded-lg text-sm font-medium transition flex-shrink-0">
-                    {{ __('catalog.filter') }}
-                </button>
-                @if($search || $genre)
-                <a href="{{ route('catalog.index', ['type' => $type]) }}" class="text-gray-500 hover:text-white text-sm transition flex-shrink-0">✕</a>
-                @endif
+            {{-- Genre --}}
+            <select name="genre" class="bg-white/5 border border-white/10 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-500/50 transition w-full sm:w-auto">
+                <option value="">{{ __('catalog.all_genres') }}</option>
+                @foreach($allGenres as $g)
+                    <option value="{{ $g }}" @selected($genre === $g) class="bg-gray-900">{{ $g }}</option>
+                @endforeach
+            </select>
+
+            {{-- Type tabs --}}
+            <div class="flex rounded-lg overflow-hidden border border-white/10 text-sm flex-shrink-0">
+                @foreach(['all' => __('catalog.all'), 'movies' => __('catalog.movies'), 'series' => __('catalog.series')] as $val => $label)
+                <a href="{{ request()->fullUrlWithQuery(['type' => $val]) }}"
+                   class="px-4 py-2 font-medium transition {{ $type === $val ? 'bg-red-600 text-white' : 'bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white' }}">
+                    {{ $label }}
+                </a>
+                @endforeach
             </div>
+
+            {{-- Sort --}}
+            <select name="sort" onchange="this.form.submit()"
+                class="bg-white/5 border border-white/10 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-500/50 transition flex-shrink-0">
+                <option value="title"  @selected($sort==='title')  class="bg-gray-900">A-Z</option>
+                <option value="year"   @selected($sort==='year')   class="bg-gray-900">{{ __('catalog.sort_year') ?? 'Ano' }}</option>
+                <option value="rating" @selected($sort==='rating') class="bg-gray-900">★ {{ __('catalog.sort_rating') ?? 'Nota' }}</option>
+                <option value="added"  @selected($sort==='added')  class="bg-gray-900">{{ __('catalog.sort_added') ?? 'Recentes' }}</option>
+            </select>
+            <input type="hidden" name="order" value="{{ $order }}">
+
+            <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex-shrink-0">
+                {{ __('catalog.filter') }}
+            </button>
+            @if($search || $genre)
+            <a href="{{ route('catalog.index', ['type' => $type]) }}" class="text-gray-500 hover:text-white text-sm transition">✕ {{ __('catalog.clear') }}</a>
+            @endif
         </form>
     </div>
 </div>
 
 {{-- Content --}}
-<div class="max-w-7xl mx-auto px-6 py-8 pb-16">
+<div class="max-w-7xl mx-auto px-4 sm:px-6 py-8 pb-16">
 
     {{-- Continuar a ver --}}
     @if($continueWatching->isNotEmpty() && !$search && !$genre)
