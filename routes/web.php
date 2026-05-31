@@ -6,7 +6,6 @@ use App\Http\Controllers\NotificationController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SubtitleController;
-use App\Http\Controllers\TorrentController;
 use App\Http\Controllers\UserAuthController;
 use App\Http\Controllers\VideoController;
 use App\Http\Controllers\WatchlistController;
@@ -51,7 +50,6 @@ Route::middleware('auth')->group(function () {
     Route::post('/watched', [CatalogController::class, 'toggleWatched'])->name('catalog.watched');
     Route::get('/video/episode/{episode}', [VideoController::class, 'stream'])->name('video.episode');
     Route::get('/video/movie/{movie}', [VideoController::class, 'streamMovie'])->name('video.movie');
-    Route::get('/torrents/search', [TorrentController::class, 'search'])->name('torrents.search');
     Route::get('/subtitles/search', [SubtitleController::class, 'search'])->name('subtitles.search');
     Route::get('/subtitles/download', [SubtitleController::class, 'download'])->name('subtitles.download');
 
