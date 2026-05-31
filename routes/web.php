@@ -59,6 +59,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/progress/{episode}/dismiss', [WatchProgressController::class, 'destroy'])->name('progress.dismiss');
 
     // Watchlist
+    Route::get('/watchlist', [WatchlistController::class, 'index'])->name('watchlist.index');
     Route::post('/watchlist', [WatchlistController::class, 'toggle'])->name('watchlist.toggle');
 
     // Perfil

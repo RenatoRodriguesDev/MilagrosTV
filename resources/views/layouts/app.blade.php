@@ -109,6 +109,12 @@
                    class="text-sm font-medium transition-colors {{ request('type') === 'series' ? 'text-white' : 'text-gray-400 hover:text-white' }}">
                     {{ __('nav.series') }}
                 </a>
+                @auth
+                <a href="{{ route('watchlist.index') }}"
+                   class="text-sm font-medium transition-colors {{ request()->routeIs('watchlist.index') ? 'text-white' : 'text-gray-400 hover:text-white' }}">
+                    🔖 {{ __('catalog.my_list') }}
+                </a>
+                @endauth
             </div>
 
             {{-- Right side --}}
@@ -211,6 +217,13 @@
             <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M21 3H3c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h5v2h8v-2h5c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 14H3V5h18v12z"/></svg>
             <span class="text-xs font-medium">{{ __('nav.series') }}</span>
         </a>
+        @auth
+        <a href="{{ route('watchlist.index') }}"
+           class="flex-1 flex flex-col items-center py-3 gap-1 transition {{ request()->routeIs('watchlist.index') ? 'text-yellow-400' : 'text-gray-500' }}">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+            <span class="text-xs font-medium">Lista</span>
+        </a>
+        @endauth
         <div class="flex-1 flex flex-col items-center py-3 gap-1">
             <button onclick="document.getElementById('lang-modal').classList.remove('hidden')"
                 class="flex flex-col items-center gap-1 text-gray-500">
