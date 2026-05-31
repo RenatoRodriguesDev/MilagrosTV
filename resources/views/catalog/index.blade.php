@@ -123,7 +123,7 @@
                  id="cw-{{ $prog->episode_id }}">
                 {{-- Remove button --}}
                 <button onclick="event.preventDefault(); dismissProgress({{ $prog->episode_id }})"
-                    class="absolute top-2 right-2 z-10 w-6 h-6 rounded-full bg-black/70 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition hover:bg-red-600">✕</button>
+                    class="absolute top-2 right-2 z-10 w-6 h-6 rounded-full bg-black/70 text-white text-xs flex items-center justify-center transition hover:bg-red-600">✕</button>
 
                 <a href="{{ route('catalog.serie', $serie) }}" class="block">
                     @if($serie->poster_url)

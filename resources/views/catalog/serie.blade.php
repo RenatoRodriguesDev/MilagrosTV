@@ -215,7 +215,7 @@ document.getElementById('trailer-modal')?.addEventListener('click', function(e) 
 
             {{-- Action --}}
             @if($ep->video_path)
-            <div class="flex-shrink-0 opacity-0 group-hover:opacity-100 transition flex items-center gap-2">
+            <div class="flex-shrink-0 flex items-center gap-2">
                 @if($ep->isExternalUrl())
                 <span class="text-blue-400 text-xs font-semibold flex items-center gap-1">
                     <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
@@ -226,6 +226,17 @@ document.getElementById('trailer-modal')?.addEventListener('click', function(e) 
                 @else
                 <span class="text-red-500 text-sm font-bold">{{ __('serie.play') }}</span>
                 @endif
+                @php $isWatched = isset($progress[$ep->id]) && $progress[$ep->id]->completed; @endphp
+                <button onclick="event.stopPropagation(); toggleEpWatched({{ $ep->id }}, this)"
+                    title="{{ $isWatched ? __('episode.mark_unwatched') : __('episode.mark_watched') }}"
+                    data-watched="{{ $isWatched ? '1' : '0' }}"
+                    class="transition p-1 rounded hover:bg-white/10 {{ $isWatched ? 'text-green-400' : 'text-gray-600 hover:text-green-400' }}">
+                    @if($isWatched)
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                    @else
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
+                    @endif
+                </button>
             </div>
             @else
             <div class="flex items-center gap-2 flex-shrink-0">
@@ -235,6 +246,17 @@ document.getElementById('trailer-modal')?.addEventListener('click', function(e) 
                     🌐 <span>Online</span>
                 </button>
                 @endif
+                @php $isWatched2 = isset($progress[$ep->id]) && $progress[$ep->id]->completed; @endphp
+                <button onclick="event.stopPropagation(); toggleEpWatched({{ $ep->id }}, this)"
+                    title="{{ $isWatched2 ? __('episode.mark_unwatched') : __('episode.mark_watched') }}"
+                    data-watched="{{ $isWatched2 ? '1' : '0' }}"
+                    class="transition p-1 rounded hover:bg-white/10 {{ $isWatched2 ? 'text-green-400' : 'text-gray-500 hover:text-green-400' }}">
+                    @if($isWatched2)
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
+                    @else
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
+                    @endif
+                </button>
             </div>
             @endif
         </div>
@@ -249,6 +271,51 @@ document.getElementById('trailer-modal')?.addEventListener('click', function(e) 
 
 @push('scripts')
 <script>
+const eyeOpen   = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>`;
+const eyeClosed = `<svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>`;
+
+async function toggleEpWatched(episodeId, btn) {
+    const csrf     = document.querySelector('meta[name="csrf-token"]').content;
+    const watched  = btn.dataset.watched === '1';
+    const markTitle   = '{{ __('episode.mark_watched') }}';
+    const unmarkTitle = '{{ __('episode.mark_unwatched') }}';
+
+    if (watched) {
+        // Remove watched
+        await fetch(`/progress/${episodeId}/dismiss`, {
+            method: 'DELETE', headers: { 'X-CSRF-TOKEN': csrf }, keepalive: true,
+        }).catch(() => {});
+        btn.dataset.watched = '0';
+        btn.title = markTitle;
+        btn.className = btn.className.replace('text-green-400', 'text-gray-600 hover:text-green-400');
+        btn.innerHTML = eyeClosed;
+        // Reset progress bar
+        const row = btn.closest('.group');
+        const bar = row?.querySelector('.bg-gray-500');
+        if (bar) { bar.className = bar.className.replace('bg-gray-500', 'bg-red-600'); bar.style.width = '0%'; }
+        const timeEl = row?.querySelector('.text-gray-600.text-xs.flex-shrink-0');
+        if (timeEl) timeEl.remove();
+    } else {
+        // Mark as watched
+        await fetch(`/progress/${episodeId}`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
+            body: JSON.stringify({ position: 2700, duration: 2700, completed: true }),
+            keepalive: true,
+        }).catch(() => {});
+        btn.dataset.watched = '1';
+        btn.title = unmarkTitle;
+        btn.className = btn.className.replace('text-gray-600 hover:text-green-400', 'text-green-400');
+        btn.innerHTML = eyeOpen;
+        // Update progress bar
+        const row = btn.closest('.group');
+        const bar = row?.querySelector('.bg-red-600, .bg-red-500');
+        if (bar) { bar.className = bar.className.replace(/bg-red-[56]00/, 'bg-gray-500'); bar.style.width = '100%'; }
+        const timeEl = row?.querySelector('.text-red-400, .text-gray-500.text-xs.flex-shrink-0');
+        if (timeEl) timeEl.textContent = '✓';
+    }
+}
+
 function hideEpisodePlyr() {
     if (episodePlyr) {
         episodePlyr.pause();

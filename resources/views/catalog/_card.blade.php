@@ -23,7 +23,7 @@
             </div>
         @endif
 
-        {{-- Always-on gradient at bottom --}}
+        {{-- Always-on gradient --}}
         <div class="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent"></div>
 
         {{-- Rating badge --}}
@@ -38,31 +38,31 @@
             ✓
         </div>
 
-        {{-- Hover overlay --}}
-        <div class="card-overlay absolute inset-0 opacity-0 group-hover:opacity-100 flex flex-col justify-end p-3">
+        {{-- Hover overlay: play icon + synopsis (desktop only effect) --}}
+        <div class="card-overlay absolute inset-0 opacity-0 group-hover:opacity-100 flex flex-col justify-center items-center p-3 pointer-events-none">
             @if($type === 'serie' || $type === 'movie')
-            <div class="flex items-center justify-center mb-2">
-                <div class="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-xl">
-                    <span class="text-black text-sm ml-0.5">▶</span>
-                </div>
+            <div class="w-10 h-10 bg-white rounded-full flex items-center justify-center shadow-xl">
+                <span class="text-black text-sm ml-0.5">▶</span>
             </div>
             @endif
             @if($item->synopsis)
-            <p class="text-xs text-gray-200 line-clamp-2 mb-2 leading-relaxed">{{ $item->localSynopsis() }}</p>
+            <p class="text-xs text-gray-200 line-clamp-2 mt-2 leading-relaxed text-center">{{ $item->localSynopsis() }}</p>
             @endif
-            <div class="flex gap-1.5">
-                <button
-                    onclick="event.stopPropagation(); toggleWatched(this, '{{ $type }}', {{ $item->id }})"
-                    class="flex-1 text-xs py-1.5 rounded-lg font-semibold transition {{ $watched ? 'bg-green-600' : 'bg-white/10' }} backdrop-blur-sm hover:opacity-90 text-white border border-white/10">
-                    {{ $watched ? __('card.watched') : __('card.mark_watched') }}
-                </button>
-                <button
-                    onclick="event.stopPropagation(); toggleWatchlist(this, '{{ $type }}', {{ $item->id }})"
-                    title="{{ $inWatchlist ? 'Remover da lista' : 'Adicionar à lista' }}"
-                    class="text-xs px-2.5 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 text-white border border-white/10 transition">
-                    {{ $inWatchlist ? '🔖' : '＋' }}
-                </button>
-            </div>
+        </div>
+
+        {{-- Action buttons — always visible, bottom of poster --}}
+        <div class="absolute bottom-0 inset-x-0 p-2 flex gap-1.5" onclick="event.stopPropagation()">
+            <button
+                onclick="toggleWatched(this, '{{ $type }}', {{ $item->id }})"
+                class="flex-1 text-xs py-1.5 rounded-lg font-semibold transition {{ $watched ? 'bg-green-600' : 'bg-black/60 hover:bg-white/20' }} backdrop-blur-sm text-white border border-white/10">
+                {{ $watched ? __('card.watched') : __('card.mark_watched') }}
+            </button>
+            <button
+                onclick="toggleWatchlist(this, '{{ $type }}', {{ $item->id }})"
+                title="{{ $inWatchlist ? __('catalog.my_list') : __('catalog.my_list') }}"
+                class="text-xs px-2.5 py-1.5 rounded-lg bg-black/60 hover:bg-white/20 backdrop-blur-sm text-white border border-white/10 transition">
+                {{ $inWatchlist ? '🔖' : '＋' }}
+            </button>
         </div>
     </div>
 

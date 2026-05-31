@@ -60,6 +60,9 @@
     "catalog.my_list": "My list",
     "player.continue": "Continue",
     "player.resuming_from": "Resuming from",
+    "episode.mark_watched": "Mark as watched",
+    "episode.mark_unwatched": "Remove watched",
+    "episode.watched": "Watched",
 
     "plyr.play": "Play",
     "plyr.pause": "Pause",
