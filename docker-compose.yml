@@ -21,22 +21,6 @@ services:
       APP_DEBUG: "true"
     restart: unless-stopped
 
-  jackett:
-    image: lscr.io/linuxserver/jackett:latest
-    ports:
-      - "9117:9117"
-    volumes:
-      - jackett_data:/config
-    restart: unless-stopped
-
-  flaresolverr:
-    image: ghcr.io/flaresolverr/flaresolverr:latest
-    ports:
-      - "8191:8191"
-    environment:
-      - LOG_LEVEL=info
-    restart: unless-stopped
-
   redis:
     image: redis:7-alpine
     restart: unless-stopped
@@ -46,5 +30,4 @@ services:
 volumes:
   db_data:
   storage_data:
-  jackett_data:
   redis_data:
