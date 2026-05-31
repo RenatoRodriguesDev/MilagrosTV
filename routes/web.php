@@ -98,6 +98,7 @@ Route::prefix('admin')->name('admin.')->middleware(\App\Http\Middleware\AdminAut
     // Discover (TMDB)
     Route::get('/discover', [DiscoverController::class, 'index'])->name('discover.index');
     Route::post('/discover/import', [DiscoverController::class, 'import'])->name('discover.import');
+    Route::post('/series/{serie}/sync-episodes', [DiscoverController::class, 'syncEpisodes'])->name('series.sync-episodes');
 
     // Detecção automática de ficheiros
     Route::get('/files/scan', [FileDetectionController::class, 'scan'])->name('files.scan');

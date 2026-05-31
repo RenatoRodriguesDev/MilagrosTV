@@ -17,6 +17,20 @@
     'method'       => 'PUT',
 ])
 
+{{-- Sincronizar episódios do TMDB --}}
+@if($serie->tmdb_id)
+<div class="bg-blue-900/20 border border-blue-700/30 rounded-xl px-5 py-4 mb-6 flex items-center justify-between flex-wrap gap-3">
+    <div>
+        <p class="text-sm font-semibold text-blue-300">Sincronizar episódios com TMDB</p>
+        <p class="text-xs text-blue-500 mt-0.5">Importa/actualiza todos os episódios de todas as temporadas automaticamente.</p>
+    </div>
+    <button onclick="syncEpisodes()" id="sync-btn"
+        class="text-sm bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg font-semibold transition flex-shrink-0">
+        ↻ Sincronizar
+    </button>
+</div>
+@endif
+
 {{-- Episódios --}}
 <div class="mt-10">
     <h2 class="text-base font-bold mb-4">🎬 Episódios</h2>
@@ -229,6 +243,28 @@ async function deleteEp(id, btn) {
         btn.closest('.episode-row').remove();
     }
 }
+
+@if($serie->tmdb_id)
+const syncRoute = '{{ route('admin.series.sync-episodes', $serie) }}';
+async function syncEpisodes() {
+    const btn = document.getElementById('sync-btn');
+    btn.textContent = 'A sincronizar...';
+    btn.disabled = true;
+    const res  = await fetch(syncRoute, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
+    });
+    const data = await res.json();
+    if (res.ok) {
+        btn.textContent = `✓ ${data.message}`;
+        btn.className = btn.className.replace('bg-blue-600 hover:bg-blue-700', 'bg-green-600');
+        setTimeout(() => location.reload(), 1500);
+    } else {
+        btn.textContent = data.error || 'Erro';
+        btn.disabled = false;
+    }
+}
+@endif
 
 const scanRoute   = '{{ route('admin.episodes.scan') }}';
 const importRoute = '{{ route('admin.series.episodes.import', $serie) }}';

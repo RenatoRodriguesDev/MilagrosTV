@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Models\Episode;
 use App\Models\Movie;
 use App\Models\Serie;
 use App\Services\TmdbService;
@@ -21,7 +22,6 @@ class DiscoverController extends Controller
         $data    = $this->tmdb->discover($type, $category, $page);
         $results = $data['results'];
 
-        // Mark which are already in the DB
         $existingTmdbIds = $type === 'movie'
             ? Movie::whereNotNull('tmdb_id')->pluck('tmdb_id')->toArray()
             : Serie::whereNotNull('tmdb_id')->pluck('tmdb_id')->toArray();
@@ -33,12 +33,12 @@ class DiscoverController extends Controller
         }, $results);
 
         return view('admin.discover', [
-            'results'     => $results,
-            'type'        => $type,
-            'category'    => $category,
-            'page'        => $page,
-            'totalPages'  => min($data['total_pages'], 20),
-            'totalResults'=> $data['total_results'],
+            'results'      => $results,
+            'type'         => $type,
+            'category'     => $category,
+            'page'         => $page,
+            'totalPages'   => min($data['total_pages'], 20),
+            'totalResults' => $data['total_results'],
         ]);
     }
 
@@ -60,7 +60,8 @@ class DiscoverController extends Controller
         }
 
         if ($type === 'tv') {
-            if (Serie::where('tmdb_id', $tmdbId)->exists()) {
+            $existing = Serie::where('tmdb_id', $tmdbId)->first();
+            if ($existing) {
                 return response()->json(['error' => 'Já importado.'], 409);
             }
             $data  = $this->tmdb->getSeriesDetails($tmdbId);
@@ -68,9 +69,60 @@ class DiscoverController extends Controller
                 'trailer_url'  => $this->tmdb->getTrailerUrl($tmdbId, 'tv'),
                 'translations' => $this->tmdb->fetchTranslations($tmdbId, 'tv'),
             ]);
-            return response()->json(['ok' => true, 'id' => $serie->id, 'title' => $serie->title]);
+
+            // Auto-import all episodes from TMDB
+            $episodes = $this->importAllEpisodes($serie, $data);
+
+            return response()->json([
+                'ok'       => true,
+                'id'       => $serie->id,
+                'title'    => $serie->title,
+                'episodes' => $episodes,
+            ]);
         }
 
         return response()->json(['error' => 'Tipo inválido.'], 400);
+    }
+
+    // Sync all episodes for an existing or new series
+    public function syncEpisodes(Serie $serie)
+    {
+        if (!$serie->tmdb_id) {
+            return response()->json(['error' => 'Série sem TMDB ID.'], 422);
+        }
+
+        $data     = $this->tmdb->getSeriesDetails((int) $serie->tmdb_id);
+        $episodes = $this->importAllEpisodes($serie, $data);
+
+        return response()->json([
+            'ok'       => true,
+            'episodes' => $episodes,
+            'message'  => "{$episodes} episódio(s) importados/actualizados.",
+        ]);
+    }
+
+    private function importAllEpisodes(Serie $serie, array $serieData): int
+    {
+        $totalSeasons = $serieData['number_of_seasons'] ?? $serie->seasons ?? 1;
+        $count = 0;
+
+        for ($s = 1; $s <= $totalSeasons; $s++) {
+            $episodes = $this->tmdb->getSeasonEpisodes((int) $serie->tmdb_id, $s);
+            foreach ($episodes as $ep) {
+                Episode::updateOrCreate(
+                    [
+                        'serie_id' => $serie->id,
+                        'season'   => $s,
+                        'episode'  => $ep['episode_number'],
+                    ],
+                    [
+                        'title' => $ep['name'] ?? null,
+                    ]
+                );
+                $count++;
+            }
+        }
+
+        return $count;
     }
 }

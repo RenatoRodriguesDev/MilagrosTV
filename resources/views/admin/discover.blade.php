@@ -171,7 +171,8 @@ async function importSelected() {
             const data = await res.json();
 
             if (res.ok) {
-                statusEl.querySelector('span').textContent = '✓';
+                const eps = data.episodes ? ` ${data.episodes}ep` : '';
+                statusEl.querySelector('span').textContent = `✓${eps}`;
                 statusEl.style.background = 'rgba(22,163,74,0.85)';
                 card.dataset.imported = '1';
                 card.classList.remove('ring-2', 'ring-red-500');
