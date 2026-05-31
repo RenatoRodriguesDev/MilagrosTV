@@ -8,7 +8,8 @@ RUN apk add --no-cache \
     sqlite-dev \
     libzip-dev \
     ffmpeg \
-    && docker-php-ext-install pdo pdo_sqlite opcache zip
+    && docker-php-ext-install pdo pdo_sqlite opcache zip \
+    && echo "memory_limit=512M" > /usr/local/etc/php/conf.d/memory.ini
 
 COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
 

@@ -17,7 +17,7 @@ class LogController extends Controller
     public function index(Request $request)
     {
         $level  = $request->input('level', 'all');
-        $search = $request->input('search', '');
+        $search = (string) $request->input('search', '');
         $lines  = $this->parseLog($level, $search);
         $stats  = $this->logStats();
 
