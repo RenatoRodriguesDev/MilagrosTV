@@ -65,9 +65,15 @@ class CatalogController extends Controller
         $allGenres        = $this->getAllGenres();
         $continueWatching = $this->getContinueWatching();
 
+        // Carrosséis por género (só quando não há pesquisa/filtro activo)
+        $carousels = [];
+        if (!$search && !$genre && $type === 'all') {
+            $carousels = $this->getCarousels();
+        }
+
         return view('catalog.index', compact(
             'movies', 'series', 'watchedIds', 'watchlistIds', 'allGenres',
-            'search', 'genre', 'type', 'sort', 'order', 'continueWatching'
+            'search', 'genre', 'type', 'sort', 'order', 'continueWatching', 'carousels'
         ));
     }
 
@@ -128,6 +134,69 @@ class CatalogController extends Controller
         }
 
         return response()->json(['watched' => $watched]);
+    }
+
+    private function getCarousels(): array
+    {
+        $carousels = [];
+
+        // 1. "Porque viste X" — baseado no histórico do utilizador
+        if (Auth::check()) {
+            $watchedGenres = [];
+            WatchProgress::with(['episode.serie'])
+                ->where('user_id', Auth::id())
+                ->where('position', '>', 60)
+                ->latest('updated_at')
+                ->limit(30)
+                ->get()
+                ->each(function ($p) use (&$watchedGenres) {
+                    foreach ($p->episode?->serie?->localGenres() ?? [] as $g) {
+                        $watchedGenres[$g] = ($watchedGenres[$g] ?? 0) + 1;
+                    }
+                });
+            arsort($watchedGenres);
+            if (!empty($watchedGenres)) {
+                $topGenre = array_key_first($watchedGenres);
+                $items    = $this->getItemsByGenre($topGenre, 20);
+                if ($items->isNotEmpty()) {
+                    $carousels[] = ['title' => __('catalog.because_you_watched') . ' ' . $topGenre, 'items' => $items, 'icon' => '🎯'];
+                }
+            }
+        }
+
+        // 2. Melhor avaliados
+        $topRated = Movie::orderByDesc('rating')->limit(20)->get()
+            ->merge(Serie::orderByDesc('rating')->limit(20)->get())
+            ->sortByDesc('rating')->take(20);
+        if ($topRated->isNotEmpty()) {
+            $carousels[] = ['title' => __('catalog.top_rated'), 'items' => $topRated, 'icon' => '⭐'];
+        }
+
+        // 3. Recém adicionados
+        $recent = Movie::latest()->limit(15)->get()
+            ->merge(Serie::latest()->limit(15)->get())
+            ->sortByDesc('created_at')->take(20);
+        if ($recent->isNotEmpty()) {
+            $carousels[] = ['title' => __('catalog.recently_added'), 'items' => $recent, 'icon' => '🆕'];
+        }
+
+        // 4. Todos os géneros com conteúdo
+        foreach ($this->getAllGenres() as $g) {
+            $items = $this->getItemsByGenre($g, 20);
+            if ($items->count() >= 3) {
+                $carousels[] = ['title' => $g, 'items' => $items, 'icon' => ''];
+            }
+        }
+
+        return $carousels;
+    }
+
+    private function getItemsByGenre(string $genre, int $limit): \Illuminate\Support\Collection
+    {
+        return Movie::whereJsonContains('genres', $genre)->orderByDesc('rating')->limit($limit)->get()
+            ->merge(Serie::whereJsonContains('genres', $genre)->orderByDesc('rating')->limit($limit)->get())
+            ->sortByDesc('rating')
+            ->take($limit);
     }
 
     private function getContinueWatching(): \Illuminate\Support\Collection

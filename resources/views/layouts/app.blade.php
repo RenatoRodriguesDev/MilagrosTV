@@ -14,6 +14,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css">
+    <link rel="stylesheet" href="/css/swiper.min.css">
     <script src="https://cdn.tailwindcss.com"></script>
     {{-- Fallback: responsive classes in case Tailwind CDN has CORS issues --}}
     <style>
@@ -58,6 +59,11 @@
 
         /* Season tabs */
         .season-tab { transition: all 0.2s; }
+
+        /* Swiper overrides */
+        .swiper { width: 100%; }
+        .swiper-wrapper { align-items: stretch; }
+        .swiper-slide { height: auto; }
 
         /* Scrollbar */
         ::-webkit-scrollbar { width: 6px; }
@@ -281,6 +287,7 @@
     </div>
     @endauth
 
+    <script src="/js/swiper.min.js"></script>
     <script src="/js/hls.min.js"></script>
     <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
     @stack('scripts')

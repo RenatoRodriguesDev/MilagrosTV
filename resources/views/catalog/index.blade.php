@@ -55,28 +55,38 @@
 <div class="pt-20"></div>
 @endif
 
-{{-- Filter bar --}}
+{{-- Filter bar — sempre visível para pesquisar, mas compacto no modo carrossel --}}
 <div class="sticky top-14 z-40 bg-[#0a0a0a]/95 backdrop-blur border-b border-white/5 px-4 py-3">
     <div class="max-w-7xl mx-auto">
+        @if(!$search && !$genre && $type === 'all' && !empty($carousels))
+        {{-- Modo carrossel: só pesquisa (compacto) --}}
+        <form method="GET" action="{{ route('catalog.index') }}" class="flex gap-2 items-center">
+            <div class="relative flex-1 max-w-sm">
+                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs">🔍</span>
+                <input type="text" name="search" value="{{ $search }}"
+                    placeholder="{{ __('catalog.search_placeholder') }}"
+                    class="search-input bg-white/5 border border-white/10 text-white rounded-lg pl-8 pr-3 py-2 text-sm w-full focus:outline-none focus:border-red-500/50 transition placeholder-gray-500">
+            </div>
+            <div class="flex rounded-lg overflow-hidden border border-white/10 text-sm flex-shrink-0">
+                <a href="{{ request()->fullUrlWithQuery(['type' => 'movies']) }}" class="px-3 py-2 font-medium transition bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white">{{ __('catalog.movies') }}</a>
+                <a href="{{ request()->fullUrlWithQuery(['type' => 'series']) }}" class="px-3 py-2 font-medium transition bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white">{{ __('catalog.series') }}</a>
+            </div>
+        </form>
+        @else
+        {{-- Modo grelha: filtros completos --}}
         <form method="GET" action="{{ route('catalog.index') }}" class="flex flex-wrap gap-2 items-center">
-
-            {{-- Search --}}
             <div class="relative w-full sm:w-52">
                 <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs">🔍</span>
                 <input type="text" name="search" value="{{ $search }}"
                     placeholder="{{ __('catalog.search_placeholder') }}"
                     class="search-input bg-white/5 border border-white/10 text-white rounded-lg pl-8 pr-3 py-2 text-sm w-full focus:outline-none focus:border-red-500/50 transition placeholder-gray-500">
             </div>
-
-            {{-- Genre --}}
             <select name="genre" class="bg-white/5 border border-white/10 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-500/50 transition w-full sm:w-auto">
                 <option value="">{{ __('catalog.all_genres') }}</option>
                 @foreach($allGenres as $g)
                     <option value="{{ $g }}" @selected($genre === $g) class="bg-gray-900">{{ $g }}</option>
                 @endforeach
             </select>
-
-            {{-- Type tabs --}}
             <div class="flex rounded-lg overflow-hidden border border-white/10 text-sm flex-shrink-0">
                 @foreach(['all' => __('catalog.all'), 'movies' => __('catalog.movies'), 'series' => __('catalog.series')] as $val => $label)
                 <a href="{{ request()->fullUrlWithQuery(['type' => $val]) }}"
@@ -85,8 +95,6 @@
                 </a>
                 @endforeach
             </div>
-
-            {{-- Sort --}}
             <select name="sort" onchange="this.form.submit()"
                 class="bg-white/5 border border-white/10 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-500/50 transition flex-shrink-0">
                 <option value="title"  @selected($sort==='title')  class="bg-gray-900">A-Z</option>
@@ -95,7 +103,6 @@
                 <option value="added"  @selected($sort==='added')  class="bg-gray-900">{{ __('catalog.sort_added') ?? 'Recentes' }}</option>
             </select>
             <input type="hidden" name="order" value="{{ $order }}">
-
             <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex-shrink-0">
                 {{ __('catalog.filter') }}
             </button>
@@ -103,6 +110,7 @@
             <a href="{{ route('catalog.index', ['type' => $type]) }}" class="text-gray-500 hover:text-white text-sm transition">✕ {{ __('catalog.clear') }}</a>
             @endif
         </form>
+        @endif
     </div>
 </div>
 
@@ -163,6 +171,39 @@
     </section>
     @endif
 
+    {{-- Carrosséis por género (vista padrão sem filtros) --}}
+    @if(!$search && !$genre && $type === 'all' && !empty($carousels))
+        @foreach($carousels as $ci => $carousel)
+        <section class="mb-8 fade-in">
+            <div class="flex items-center justify-between mb-4">
+                <h2 class="text-lg font-bold text-white">
+                    @if($carousel['icon']) <span class="mr-1.5">{{ $carousel['icon'] }}</span> @endif
+                    {{ $carousel['title'] }}
+                </h2>
+                <div class="flex gap-1">
+                    <button class="swiper-prev-{{ $ci }} w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition text-lg disabled:opacity-30">‹</button>
+                    <button class="swiper-next-{{ $ci }} w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition text-lg disabled:opacity-30">›</button>
+                </div>
+            </div>
+            <div class="swiper swiper-carousel-{{ $ci }}">
+                <div class="swiper-wrapper">
+                    @foreach($carousel['items'] as $item)
+                    @php
+                        $isMovie  = $item instanceof \App\Models\Movie;
+                        $itemType = $isMovie ? 'movie' : 'serie';
+                    @endphp
+                    <div class="swiper-slide">
+                        @include('catalog._card', ['item' => $item, 'type' => $itemType])
+                    </div>
+                    @endforeach
+                </div>
+            </div>
+        </section>
+        @endforeach
+
+    {{-- Vista de grelha (com filtros activos) --}}
+    @else
+
     @if($type !== 'series' && $movies->total() > 0)
     <section class="mb-12 fade-in">
         <div class="flex items-center gap-3 mb-5">
@@ -210,6 +251,7 @@
         @endif
     </div>
     @endif
+    @endif
 
 </div>
 
@@ -217,6 +259,28 @@
 
 @push('scripts')
 <script>
+// Inicializar Swiper para cada carrossel
+@if(!$search && !$genre && $type === 'all' && !empty($carousels))
+@foreach($carousels as $ci => $carousel)
+new Swiper('.swiper-carousel-{{ $ci }}', {
+    slidesPerView: 2.3,
+    spaceBetween: 12,
+    grabCursor: true,
+    navigation: {
+        nextEl: '.swiper-next-{{ $ci }}',
+        prevEl: '.swiper-prev-{{ $ci }}',
+    },
+    breakpoints: {
+        480:  { slidesPerView: 3.3, spaceBetween: 12 },
+        640:  { slidesPerView: 3.5, spaceBetween: 14 },
+        768:  { slidesPerView: 4.3, spaceBetween: 14 },
+        1024: { slidesPerView: 5.3, spaceBetween: 16 },
+        1280: { slidesPerView: 6.3, spaceBetween: 16 },
+    },
+});
+@endforeach
+@endif
+
 const watchedIds    = @json($watchedIds);
 const watchlistIds  = @json($watchlistIds);
 
