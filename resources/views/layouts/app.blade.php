@@ -15,6 +15,18 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css">
     <script src="https://cdn.tailwindcss.com"></script>
+    {{-- Fallback: responsive classes in case Tailwind CDN has CORS issues --}}
+    <style>
+        @media (min-width: 640px) {
+            .sm\:flex { display: flex !important; }
+            .sm\:block { display: block !important; }
+            .sm\:hidden { display: none !important; }
+            .sm\:w-auto { width: auto !important; }
+            .sm\:w-52 { width: 13rem !important; }
+            .sm\:px-6 { padding-left: 1.5rem !important; padding-right: 1.5rem !important; }
+            .sm\:gap-8 { gap: 2rem !important; }
+        }
+    </style>
     <script>
         tailwind.config = {
             theme: {
