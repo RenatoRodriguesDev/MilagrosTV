@@ -119,29 +119,35 @@
         <div class="flex gap-4 overflow-x-auto pb-2 scrollbar-none">
             @foreach($continueWatching as $prog)
             @php $ep = $prog->episode; $serie = $ep->serie; @endphp
-            <a href="{{ route('catalog.serie', $serie) }}"
-               class="flex-shrink-0 w-44 group relative rounded-xl overflow-hidden bg-gray-800 border border-white/10 hover:border-red-500/50 transition">
-                @if($serie->poster_url)
-                <img src="{{ $serie->poster_url }}" class="w-full h-64 object-cover">
-                @else
-                <div class="w-full h-64 bg-gray-700 flex items-center justify-center text-3xl">📺</div>
-                @endif
-                {{-- Progress bar --}}
-                <div class="absolute bottom-0 left-0 right-0 h-1 bg-black/60">
-                    <div class="h-full bg-red-500" style="width: {{ $prog->percent }}%"></div>
-                </div>
-                {{-- Overlay --}}
-                <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent flex flex-col justify-end p-3">
-                    <p class="text-white text-xs font-semibold truncate">{{ $serie->localTitle() }}</p>
-                    <p class="text-gray-400 text-[10px]">T{{ $ep->season }}E{{ $ep->episode }}{{ $ep->title ? ' · '.Str::limit($ep->title, 20) : '' }}</p>
-                    <p class="text-red-400 text-[10px] font-medium mt-0.5">{{ gmdate($prog->position >= 3600 ? 'H:i:s' : 'i:s', $prog->position) }} restantes</p>
-                </div>
-                <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
-                    <div class="w-12 h-12 rounded-full bg-red-600/90 flex items-center justify-center">
-                        <svg class="w-5 h-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+            <div class="flex-shrink-0 w-44 group relative rounded-xl overflow-hidden bg-gray-800 border border-white/10 hover:border-red-500/50 transition"
+                 id="cw-{{ $prog->episode_id }}">
+                {{-- Remove button --}}
+                <button onclick="event.preventDefault(); dismissProgress({{ $prog->episode_id }})"
+                    class="absolute top-2 right-2 z-10 w-6 h-6 rounded-full bg-black/70 text-white text-xs flex items-center justify-center opacity-0 group-hover:opacity-100 transition hover:bg-red-600">✕</button>
+
+                <a href="{{ route('catalog.serie', $serie) }}" class="block">
+                    @if($serie->poster_url)
+                    <img src="{{ $serie->poster_url }}" class="w-full h-64 object-cover">
+                    @else
+                    <div class="w-full h-64 bg-gray-700 flex items-center justify-center text-3xl">📺</div>
+                    @endif
+                    {{-- Progress bar --}}
+                    <div class="absolute bottom-0 left-0 right-0 h-1 bg-black/60">
+                        <div class="h-full bg-red-500" style="width: {{ $prog->percent }}%"></div>
                     </div>
-                </div>
-            </a>
+                    {{-- Overlay --}}
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent flex flex-col justify-end p-3">
+                        <p class="text-white text-xs font-semibold truncate">{{ $serie->localTitle() }}</p>
+                        <p class="text-gray-400 text-[10px]">T{{ $ep->season }}E{{ $ep->episode }}{{ $ep->title ? ' · '.Str::limit($ep->title, 20) : '' }}</p>
+                        <p class="text-red-400 text-[10px] font-medium mt-0.5">{{ gmdate($prog->position >= 3600 ? 'H:i:s' : 'i:s', $prog->position) }} restantes</p>
+                    </div>
+                    <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                        <div class="w-12 h-12 rounded-full bg-red-600/90 flex items-center justify-center">
+                            <svg class="w-5 h-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+                        </div>
+                    </div>
+                </a>
+            </div>
             @endforeach
         </div>
     </section>
@@ -265,6 +271,15 @@ function updateBtn(btn, watched) {
         btn.classList.replace('bg-green-600', 'bg-white/10');
         if (badge) badge.classList.add('hidden');
     }
+}
+
+async function dismissProgress(episodeId) {
+    await fetch(`/progress/${episodeId}/dismiss`, {
+        method: 'DELETE',
+        headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
+    }).catch(() => {});
+    const card = document.getElementById(`cw-${episodeId}`);
+    if (card) card.remove();
 }
 </script>
 @endpush

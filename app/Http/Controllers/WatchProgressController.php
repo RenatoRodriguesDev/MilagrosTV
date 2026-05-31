@@ -20,6 +20,14 @@ class WatchProgressController extends Controller
         );
     }
 
+    public function destroy(Episode $episode)
+    {
+        WatchProgress::where('user_id', auth()->id())
+            ->where('episode_id', $episode->id)
+            ->delete();
+        return response()->json(['ok' => true]);
+    }
+
     public function store(Request $request, Episode $episode)
     {
         $data = $request->validate([

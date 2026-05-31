@@ -56,6 +56,7 @@ Route::middleware('auth')->group(function () {
     // Progresso de visualização
     Route::get('/progress/{episode}', [WatchProgressController::class, 'show'])->name('progress.show');
     Route::post('/progress/{episode}', [WatchProgressController::class, 'store'])->name('progress.store');
+    Route::delete('/progress/{episode}/dismiss', [WatchProgressController::class, 'destroy'])->name('progress.dismiss');
 
     // Watchlist
     Route::post('/watchlist', [WatchlistController::class, 'toggle'])->name('watchlist.toggle');
