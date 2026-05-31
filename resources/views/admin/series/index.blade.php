@@ -85,7 +85,7 @@
         </thead>
         <tbody class="divide-y divide-white/[.05]">
             @foreach($series as $serie)
-            @php $epCount = $serie->episodes->count(); $localCount = $serie->episodes->whereNotNull('video_path')->count(); @endphp
+            @php $epCount = $serie->episodes_count; $localCount = $serie->local_episodes_count; @endphp
             <tr class="hover:bg-white/[.02] group">
                 <td class="px-6 py-3">
                     <div class="flex-shrink-0 rounded overflow-hidden" style="width:28px;height:40px">

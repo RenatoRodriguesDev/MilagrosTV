@@ -14,7 +14,11 @@ class SerieController extends Controller
     public function index(Request $request)
     {
         $search = $request->input('search');
-        $series = Serie::with('episodes')->orderBy('title')
+        $series = Serie::withCount([
+                'episodes',
+                'episodes as local_episodes_count' => fn($q) => $q->whereNotNull('video_path'),
+            ])
+            ->orderBy('title')
             ->when($search, fn($q) => $q->where('title', 'like', "%{$search}%")
                 ->orWhere('original_title', 'like', "%{$search}%"))
             ->get();
