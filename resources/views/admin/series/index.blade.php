@@ -11,9 +11,25 @@
         <a href="{{ route('admin.series.index') }}" class="text-gray-500 hover:text-white text-sm">✕</a>
         @endif
     </form>
+    <button onclick="syncAllEpisodes()" id="sync-all-btn"
+        class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm font-semibold transition flex-shrink-0">
+        ↻ Sincronizar episódios
+    </button>
     <a href="{{ route('admin.series.create') }}" class="bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded-lg text-sm font-semibold transition flex-shrink-0">
         + Série
     </a>
+</div>
+
+{{-- Sync progress --}}
+<div id="sync-progress-bar" class="hidden bg-gray-800/60 border border-white/[.08] rounded-xl px-5 py-4 mb-4">
+    <div class="flex items-center justify-between mb-2">
+        <p class="text-sm font-medium text-blue-300">A sincronizar episódios...</p>
+        <span id="sync-status" class="text-xs text-gray-400"></span>
+    </div>
+    <div class="h-1.5 bg-white/10 rounded-full overflow-hidden">
+        <div id="sync-bar" class="h-full bg-blue-500 rounded-full transition-all" style="width:0%"></div>
+    </div>
+    <p id="sync-log" class="text-xs text-gray-500 mt-2 truncate"></p>
 </div>
 
 @if($series->isEmpty())
@@ -93,6 +109,10 @@
                 <td class="px-6 py-3">
                     <div class="flex items-center gap-2 justify-end opacity-0 group-hover:opacity-100 transition">
                         <a href="{{ route('catalog.serie', $serie) }}" target="_blank" class="text-xs px-2.5 py-1.5 rounded-lg bg-white/5 text-gray-400 hover:text-white transition">Ver</a>
+                        @if($serie->tmdb_id)
+                        <button onclick="syncSerie({{ $serie->id }}, '{{ route('admin.series.sync-episodes', $serie) }}', this)"
+                            class="text-xs px-2.5 py-1.5 rounded-lg bg-blue-900/20 text-blue-400 hover:bg-blue-900/40 transition">↻</button>
+                        @endif
                         <a href="{{ route('admin.series.edit', $serie) }}" class="text-xs px-2.5 py-1.5 rounded-lg bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 transition">Editar</a>
                         <form method="POST" action="{{ route('admin.series.destroy', $serie) }}"
                             onsubmit="return confirm('Remover {{ addslashes($serie->title) }}?')" class="inline">
@@ -118,5 +138,67 @@ if (si) si.addEventListener('input', function() {
     clearTimeout(this._t);
     this._t = setTimeout(() => this.form.submit(), 400);
 });
+
+const CSRF = document.querySelector('meta[name="csrf-token"]').content;
+
+// Sync single serie
+async function syncSerie(id, url, btn) {
+    btn.textContent = '...';
+    btn.disabled = true;
+    const res  = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF } });
+    const data = await res.json();
+    if (res.ok) {
+        btn.textContent = '✓';
+        btn.className = btn.className.replace('text-blue-400', 'text-green-400');
+    } else {
+        btn.textContent = '✗';
+        btn.disabled = false;
+    }
+}
+
+// Sync all series
+async function syncAllEpisodes() {
+    const routes = [
+        @foreach($series as $serie)
+            @if($serie->tmdb_id)
+            { title: '{{ addslashes($serie->title) }}', url: '{{ route('admin.series.sync-episodes', $serie) }}' },
+            @endif
+        @endforeach
+    ];
+
+    if (!routes.length) { alert('Nenhuma série com TMDB ID.'); return; }
+
+    const btn = document.getElementById('sync-all-btn');
+    const progressBar = document.getElementById('sync-progress-bar');
+    const bar = document.getElementById('sync-bar');
+    const status = document.getElementById('sync-status');
+    const log = document.getElementById('sync-log');
+
+    btn.disabled = true;
+    progressBar.classList.remove('hidden');
+
+    let done = 0, totalEps = 0;
+    for (const route of routes) {
+        status.textContent = `${done}/${routes.length}`;
+        log.textContent = route.title;
+        bar.style.width = `${Math.round(done / routes.length * 100)}%`;
+
+        try {
+            const res  = await fetch(route.url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': CSRF } });
+            const data = await res.json();
+            if (res.ok) totalEps += data.episodes || 0;
+        } catch(_) {}
+
+        done++;
+        await new Promise(r => setTimeout(r, 200));
+    }
+
+    bar.style.width = '100%';
+    bar.className = bar.className.replace('bg-blue-500', 'bg-green-500');
+    status.textContent = `✓ ${done} séries · ${totalEps} episódios`;
+    log.textContent = 'Concluído!';
+    btn.textContent = '✓ Sincronizado';
+    btn.className = btn.className.replace('bg-blue-600 hover:bg-blue-700', 'bg-green-600');
+}
 </script>
 @endpush
