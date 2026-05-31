@@ -12,10 +12,33 @@ class ProfileController extends Controller
 {
     public function show()
     {
-        $user = Auth::user();
-
+        $user     = Auth::user();
         $progress = WatchProgress::where('user_id', $user->id)->get();
-        $watched  = WatchedItem::where('user_id', $user->id)->get();
+        $watched  = \App\Models\WatchedItem::where('user_id', $user->id)->get();
+
+        // Genre breakdown from completed episodes
+        $genreCount = [];
+        WatchProgress::with(['episode.serie'])
+            ->where('user_id', $user->id)
+            ->where('position', '>', 60)
+            ->get()
+            ->each(function ($p) use (&$genreCount) {
+                foreach ($p->episode?->serie?->localGenres() ?? [] as $g) {
+                    $genreCount[$g] = ($genreCount[$g] ?? 0) + 1;
+                }
+            });
+        arsort($genreCount);
+        $topGenres = array_slice($genreCount, 0, 5, true);
+
+        // Most watched series
+        $topSeries = WatchProgress::with(['episode.serie'])
+            ->where('user_id', $user->id)
+            ->get()
+            ->groupBy(fn($p) => $p->episode?->serie_id)
+            ->map(fn($g) => ['serie' => $g->first()?->episode?->serie, 'count' => $g->count()])
+            ->filter(fn($g) => $g['serie'])
+            ->sortByDesc('count')
+            ->take(5);
 
         $stats = [
             'episodes_started'   => $progress->count(),
@@ -25,14 +48,24 @@ class ProfileController extends Controller
             'series_watched'     => $watched->where('item_type', 'serie')->count(),
         ];
 
-        // Genre breakdown from watch history
         $recentProgress = WatchProgress::with(['episode.serie'])
             ->where('user_id', $user->id)
             ->latest('updated_at')
             ->limit(5)
             ->get();
 
-        return view('profile.show', compact('user', 'stats', 'recentProgress'));
+        return view('profile.show', compact('user', 'stats', 'recentProgress', 'topGenres', 'topSeries'));
+    }
+
+    public function history()
+    {
+        $user = Auth::user();
+        $history = WatchProgress::with(['episode.serie'])
+            ->where('user_id', $user->id)
+            ->latest('updated_at')
+            ->paginate(30);
+
+        return view('profile.history', compact('history'));
     }
 
     public function update(Request $request)

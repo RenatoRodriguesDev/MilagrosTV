@@ -184,6 +184,9 @@
                         <a href="{{ route('profile.show') }}" class="block px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 transition">
                             Perfil
                         </a>
+                        <a href="{{ route('profile.history') }}" class="block px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 transition">
+                            Histórico
+                        </a>
                         @if(auth()->user()->is_admin)
                         <a href="{{ route('admin.dashboard') }}" class="block px-4 py-2.5 text-sm text-gray-300 hover:bg-white/5 transition">
                             Administração

@@ -67,6 +67,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/profile', [ProfileController::class, 'show'])->name('profile.show');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::patch('/profile/password', [ProfileController::class, 'updatePassword'])->name('profile.password');
+    Route::get('/history', [ProfileController::class, 'history'])->name('profile.history');
 
     // Notificações
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');

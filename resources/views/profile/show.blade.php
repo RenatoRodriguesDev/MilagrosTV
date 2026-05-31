@@ -38,11 +38,48 @@
         @endforeach
     </div>
 
+    {{-- Géneros favoritos --}}
+    @if(!empty($topGenres))
+    <div class="bg-gray-800/40 border border-white/[.08] rounded-2xl p-5 mb-6">
+        <h2 class="font-semibold text-sm mb-3">Géneros favoritos</h2>
+        <div class="flex flex-wrap gap-2">
+            @foreach($topGenres as $genre => $count)
+            <span class="bg-white/8 border border-white/10 text-gray-300 text-xs px-3 py-1.5 rounded-full">
+                {{ $genre }} <span class="text-gray-500 ml-1">{{ $count }}</span>
+            </span>
+            @endforeach
+        </div>
+    </div>
+    @endif
+
+    {{-- Séries mais vistas --}}
+    @if($topSeries->isNotEmpty())
+    <div class="bg-gray-800/40 border border-white/[.08] rounded-2xl overflow-hidden mb-6">
+        <div class="px-5 py-4 border-b border-white/[.08] flex items-center justify-between">
+            <h2 class="font-semibold text-sm">Séries mais vistas</h2>
+        </div>
+        <div class="divide-y divide-white/[.05]">
+            @foreach($topSeries as $item)
+            <a href="{{ route('catalog.serie', $item['serie']) }}" class="flex items-center gap-3 px-5 py-3 hover:bg-white/[.02] transition">
+                @if($item['serie']->poster_url)
+                    <img src="{{ $item['serie']->poster_url }}" style="width:28px;height:40px;object-fit:cover;border-radius:4px;flex-shrink:0">
+                @else
+                    <div style="width:28px;height:40px;background:#374151;border-radius:4px;flex-shrink:0"></div>
+                @endif
+                <p class="flex-1 text-sm font-medium truncate">{{ $item['serie']->localTitle() }}</p>
+                <span class="text-xs text-gray-500 flex-shrink-0">{{ $item['count'] }} ep.</span>
+            </a>
+            @endforeach
+        </div>
+    </div>
+    @endif
+
     {{-- Actividade recente --}}
     @if($recentProgress->isNotEmpty())
     <div class="bg-gray-800/40 border border-white/[.08] rounded-2xl overflow-hidden mb-8">
-        <div class="px-6 py-4 border-b border-white/[.08]">
+        <div class="px-6 py-4 border-b border-white/[.08] flex items-center justify-between">
             <h2 class="font-semibold text-sm">Visto recentemente</h2>
+            <a href="{{ route('profile.history') }}" class="text-xs text-gray-500 hover:text-white transition">Ver tudo →</a>
         </div>
         <div class="divide-y divide-white/[.05]">
             @foreach($recentProgress as $prog)
