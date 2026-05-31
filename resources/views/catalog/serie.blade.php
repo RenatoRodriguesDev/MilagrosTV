@@ -135,6 +135,7 @@ document.getElementById('trailer-modal')?.addEventListener('click', function(e) 
                 <p id="player-label" class="text-gray-300 text-sm font-medium"></p>
                 <div class="flex items-center gap-3">
                     <span id="online-badge" class="hidden text-xs text-green-400">🌐 Online</span>
+                    <div id="online-src-switcher" class="hidden flex items-center gap-1"></div>
                     <button onclick="closePlayer()" class="text-gray-400 hover:text-white transition text-sm flex items-center gap-1">
                         {{ __('common.close') }}
                     </button>
@@ -284,13 +285,43 @@ function playOnline(season, episode, label, episodeId) {
     const lbl    = document.getElementById('player-label');
     const badge  = document.getElementById('online-badge');
 
+    // Source definitions — user can switch in the modal header
+    window._onlineSources = [
+        { label: 'EN',  url: `https://vidsrc.to/embed/tv/${TMDB_ID}/${season}/${episode}` },
+        { label: 'EN 2',url: `https://vidsrc.xyz/embed/tv?tmdb=${TMDB_ID}&season=${season}&episode=${episode}` },
+        { label: 'ES',  url: `https://multiembed.mov/?video_id=${TMDB_ID}&tmdb=1&s=${season}&e=${episode}` },
+        { label: 'ES 2',url: `https://vidlink.pro/tv/${TMDB_ID}/${season}/${episode}` },
+    ];
+    window._onlineSeason  = season;
+    window._onlineEp      = episode;
+
     hideEpisodePlyr();
     if (badge) { badge.classList.remove('hidden'); }
-    iframe.src            = `https://vidsrc.to/embed/tv/${TMDB_ID}/${season}/${episode}`;
+
+    // Build source switcher
+    const sw = document.getElementById('online-src-switcher');
+    if (sw) {
+        sw.innerHTML = window._onlineSources.map((s, i) =>
+            `<button onclick="switchOnlineSource(${i})" id="osrc-${i}"
+                class="text-[10px] px-2 py-0.5 rounded font-semibold transition ${i===0?'bg-red-600 text-white':'bg-white/10 text-gray-400 hover:bg-white/20'}">${s.label}</button>`
+        ).join('');
+        sw.classList.remove('hidden');
+    }
+
+    iframe.src            = window._onlineSources[0].url;
     iframe.style.display  = 'block';
     lbl.textContent       = label;
     modal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
+}
+
+function switchOnlineSource(idx) {
+    const iframe = document.getElementById('iframe-player');
+    iframe.src = window._onlineSources[idx].url;
+    window._onlineSources.forEach((_, i) => {
+        const btn = document.getElementById(`osrc-${i}`);
+        if (btn) btn.className = `text-[10px] px-2 py-0.5 rounded font-semibold transition ${i===idx?'bg-red-600 text-white':'bg-white/10 text-gray-400 hover:bg-white/20'}`;
+    });
 }
 
 function saveOnlineProgress() {
@@ -513,6 +544,8 @@ function closePlayer() {
     iframe.style.display = 'none';
     const badge = document.getElementById('online-badge');
     if (badge) badge.classList.add('hidden');
+    const sw = document.getElementById('online-src-switcher');
+    if (sw) sw.classList.add('hidden');
     modal.classList.add('hidden');
     document.body.style.overflow = '';
 }

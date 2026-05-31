@@ -125,10 +125,10 @@
             <div class="flex items-center gap-3">
                 <p class="text-gray-300 text-sm font-medium">{{ $movie->localTitle() }} · 🌐 Online</p>
                 <div class="flex items-center gap-1.5">
-                    <span class="text-gray-600 text-xs">Fonte:</span>
-                    <button id="msrc-0" onclick="switchMovieSource(0)" class="text-xs px-2 py-1 rounded bg-red-600 text-white">1</button>
-                    <button id="msrc-1" onclick="switchMovieSource(1)" class="text-xs px-2 py-1 rounded bg-white/10 text-gray-400 hover:bg-white/20">2</button>
-                    <button id="msrc-2" onclick="switchMovieSource(2)" class="text-xs px-2 py-1 rounded bg-white/10 text-gray-400 hover:bg-white/20">3</button>
+                    <button id="msrc-0" onclick="switchMovieSource(0)" class="text-[10px] px-2 py-0.5 rounded bg-red-600 text-white font-semibold">EN</button>
+                    <button id="msrc-1" onclick="switchMovieSource(1)" class="text-[10px] px-2 py-0.5 rounded bg-white/10 text-gray-400 hover:bg-white/20 font-semibold">EN 2</button>
+                    <button id="msrc-2" onclick="switchMovieSource(2)" class="text-[10px] px-2 py-0.5 rounded bg-white/10 text-gray-400 hover:bg-white/20 font-semibold">ES</button>
+                    <button id="msrc-3" onclick="switchMovieSource(3)" class="text-[10px] px-2 py-0.5 rounded bg-white/10 text-gray-400 hover:bg-white/20 font-semibold">ES 2</button>
                 </div>
             </div>
             <button onclick="closeOnlineModal()" class="text-gray-400 hover:text-white text-sm">✕ Fechar</button>
@@ -199,9 +199,10 @@ document.getElementById('movie-player-modal')?.addEventListener('click', functio
 // Online movie player
 const MOVIE_TMDB_ID = '{{ $movie->tmdb_id }}';
 const MOVIE_SOURCES = [
-    () => `https://vidsrc.to/embed/movie/${MOVIE_TMDB_ID}`,
-    () => `https://vidsrc.xyz/embed/movie?tmdb=${MOVIE_TMDB_ID}`,
-    () => `https://embed.su/embed/movie/${MOVIE_TMDB_ID}`,
+    { label: 'EN',  url: () => `https://vidsrc.to/embed/movie/${MOVIE_TMDB_ID}` },
+    { label: 'EN 2',url: () => `https://vidsrc.xyz/embed/movie?tmdb=${MOVIE_TMDB_ID}` },
+    { label: 'ES',  url: () => `https://multiembed.mov/?video_id=${MOVIE_TMDB_ID}&tmdb=1` },
+    { label: 'ES 2',url: () => `https://vidlink.pro/movie/${MOVIE_TMDB_ID}` },
 ];
 
 function playMovieOnline() {
@@ -211,12 +212,10 @@ function playMovieOnline() {
 }
 
 function switchMovieSource(idx) {
-    document.getElementById('online-iframe').src = MOVIE_SOURCES[idx]();
+    document.getElementById('online-iframe').src = MOVIE_SOURCES[idx].url();
     MOVIE_SOURCES.forEach((_, i) => {
         const btn = document.getElementById(`msrc-${i}`);
-        if (btn) btn.className = i === idx
-            ? 'text-xs px-2 py-1 rounded bg-red-600 text-white'
-            : 'text-xs px-2 py-1 rounded bg-white/10 text-gray-400 hover:bg-white/20';
+        if (btn) btn.className = `text-[10px] px-2 py-0.5 rounded font-semibold transition ${i===idx?'bg-red-600 text-white':'bg-white/10 text-gray-400 hover:bg-white/20'}`;
     });
 }
 
