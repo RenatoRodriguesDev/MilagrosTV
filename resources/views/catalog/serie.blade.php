@@ -197,7 +197,7 @@ document.getElementById('trailer-modal')?.addEventListener('click', function(e) 
                     {{ $ep->title ?: __('serie.episode') . ' ' . $ep->episode }}
                 </p>
                 <p class="text-gray-500 text-xs mt-0.5">T{{ $ep->season }}E{{ $ep->episode }}</p>
-                @if($ep->video_path && isset($progress[$ep->id]) && $progress[$ep->id]->duration > 0)
+                @if(isset($progress[$ep->id]) && $progress[$ep->id]->duration > 0)
                 @php $prog = $progress[$ep->id]; @endphp
                 <div class="mt-1.5 flex items-center gap-2">
                     <div class="flex-1 h-1 bg-white/10 rounded-full overflow-hidden">
