@@ -157,4 +157,22 @@ class TmdbService
 
         return $trailer ? 'https://www.youtube.com/embed/' . $trailer['key'] . '?autoplay=1' : null;
     }
+
+    public function discover(string $type, string $category = 'popular', int $page = 1): array
+    {
+        $endpoint = $type === 'movie' ? "/movie/{$category}" : "/tv/{$category}";
+        $data = $this->get($endpoint, ['page' => $page]);
+        return [
+            'results'       => $data['results'] ?? [],
+            'total_pages'   => $data['total_pages'] ?? 1,
+            'total_results' => $data['total_results'] ?? 0,
+            'page'          => $data['page'] ?? 1,
+        ];
+    }
+
+    public function trending(string $type = 'all', string $window = 'week'): array
+    {
+        $data = $this->get("/trending/{$type}/{$window}");
+        return $data['results'] ?? [];
+    }
 }

@@ -12,6 +12,7 @@ use App\Http\Controllers\WatchlistController;
 use App\Http\Controllers\WatchProgressController;
 use App\Http\Controllers\Admin\AuthController;
 use App\Http\Controllers\Admin\DashboardController;
+use App\Http\Controllers\Admin\DiscoverController;
 use App\Http\Controllers\Admin\EpisodeController;
 use App\Http\Controllers\Admin\FileDetectionController;
 use App\Http\Controllers\Admin\LogController;
@@ -93,6 +94,10 @@ Route::prefix('admin')->name('admin.')->middleware(\App\Http\Middleware\AdminAut
     Route::get('/users/{user}/activity', [UserController::class, 'activity'])->name('users.activity');
     Route::post('/users/{user}/toggle-admin', [UserController::class, 'toggleAdmin'])->name('users.toggle-admin');
     Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
+
+    // Discover (TMDB)
+    Route::get('/discover', [DiscoverController::class, 'index'])->name('discover.index');
+    Route::post('/discover/import', [DiscoverController::class, 'import'])->name('discover.import');
 
     // Detecção automática de ficheiros
     Route::get('/files/scan', [FileDetectionController::class, 'scan'])->name('files.scan');
