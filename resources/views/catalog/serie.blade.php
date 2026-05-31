@@ -250,9 +250,12 @@ document.getElementById('trailer-modal')?.addEventListener('click', function(e) 
         <div class="w-full max-w-4xl">
             <div class="flex items-center justify-between mb-3">
                 <p id="player-label" class="text-gray-300 text-sm font-medium"></p>
-                <button onclick="closePlayer()" class="text-gray-400 hover:text-white transition text-sm flex items-center gap-1">
-                    {{ __('common.close') }}
-                </button>
+                <div class="flex items-center gap-3">
+                    <span id="online-badge" class="hidden text-xs text-green-400">🌐 Online</span>
+                    <button onclick="closePlayer()" class="text-gray-400 hover:text-white transition text-sm flex items-center gap-1">
+                        {{ __('common.close') }}
+                    </button>
+                </div>
             </div>
             <div style="background:#000;border-radius:12px;line-height:0;">
                 <video id="video-player" controls playsinline style="width:100%;max-height:70vh;display:none;border-radius:12px;"></video>
@@ -341,10 +344,18 @@ document.getElementById('trailer-modal')?.addEventListener('click', function(e) 
                 @endif
             </div>
             @else
-            <button onclick="event.stopPropagation(); openTorrents('{{ addslashes($serie->original_title ?? $serie->title) }} S{{ str_pad($ep->season,2,'0',STR_PAD_LEFT) }}E{{ str_pad($ep->episode,2,'0',STR_PAD_LEFT) }}', 'series', {{ $ep->id }})"
-                class="flex-shrink-0 text-gray-500 hover:text-orange-400 text-xs transition flex items-center gap-1">
-                🧲 <span>{{ __('torrent.find') }}</span>
-            </button>
+            <div class="flex items-center gap-2 flex-shrink-0">
+                @if($serie->tmdb_id)
+                <button onclick="event.stopPropagation(); playOnline({{ $ep->season }}, {{ $ep->episode }}, '{{ addslashes($ep->title ?: 'T'.$ep->season.'E'.$ep->episode) }}', {{ $ep->id }})"
+                    class="text-green-400 hover:text-green-300 text-xs font-semibold transition flex items-center gap-1">
+                    🌐 <span>Online</span>
+                </button>
+                @endif
+                <button onclick="event.stopPropagation(); openTorrents('{{ addslashes($serie->original_title ?? $serie->title) }} S{{ str_pad($ep->season,2,'0',STR_PAD_LEFT) }}E{{ str_pad($ep->episode,2,'0',STR_PAD_LEFT) }}', 'series', {{ $ep->id }})"
+                    class="text-gray-500 hover:text-orange-400 text-xs transition flex items-center gap-1">
+                    🧲 <span>{{ __('torrent.find') }}</span>
+                </button>
+            </div>
             @endif
         </div>
         @endforeach
@@ -370,6 +381,72 @@ document.getElementById('trailer-modal')?.addEventListener('click', function(e) 
 .sub-ctrl-btn.active { background: rgba(255,255,255,0.2); color: #fff; }
 </style>
 <script>
+function hideEpisodePlyr() {
+    if (episodePlyr) {
+        episodePlyr.pause();
+        const c = episodePlyr.elements?.container;
+        if (c) c.style.display = 'none';
+        else document.getElementById('video-player').style.display = 'none';
+    } else {
+        document.getElementById('video-player').style.display = 'none';
+    }
+}
+
+// ── Online sources (Vidsrc) ───────────────────────────────────────────────────
+const TMDB_ID = '{{ $serie->tmdb_id }}';
+
+let _onlineEpId = null, _onlineStartTime = null, _onlineBasePos = 0;
+
+function playOnline(season, episode, label, episodeId) {
+    if (!TMDB_ID) { alert('Esta série não tem TMDB ID configurado.'); return; }
+
+    _onlineEpId      = episodeId || null;
+    _onlineStartTime = Date.now();
+    _onlineBasePos   = 0;
+
+    // Load existing progress to accumulate correctly (non-blocking)
+    if (_onlineEpId) {
+        fetch(`/progress/${_onlineEpId}`)
+            .then(r => r.json())
+            .then(p => { _onlineBasePos = p.position || 0; })
+            .catch(() => {});
+    }
+
+    const iframe = document.getElementById('iframe-player');
+    const modal  = document.getElementById('player-modal');
+    const lbl    = document.getElementById('player-label');
+    const badge  = document.getElementById('online-badge');
+
+    hideEpisodePlyr();
+    if (badge) { badge.classList.remove('hidden'); }
+    iframe.src            = `https://vidsrc.to/embed/tv/${TMDB_ID}/${season}/${episode}`;
+    iframe.style.display  = 'block';
+    lbl.textContent       = label;
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+}
+
+function saveOnlineProgress() {
+    if (!_onlineEpId || !_onlineStartTime) return;
+    const elapsed = Math.floor((Date.now() - _onlineStartTime) / 1000);
+    if (elapsed < 5) { _onlineEpId = null; _onlineStartTime = null; return; }
+
+    const pos  = Math.min(_onlineBasePos + elapsed, 3600 * 4);
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+
+    // Single POST — no chained fetch
+    fetch(`/progress/${_onlineEpId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
+        body: JSON.stringify({ position: pos, duration: 2700, completed: pos > 2600 }),
+        keepalive: true,
+    }).catch(() => {});
+
+    _onlineEpId = null;
+    _onlineStartTime = null;
+    _onlineBasePos = 0;
+}
+
 // Watchlist toggle (detail page)
 async function toggleWatchlistDetail(btn) {
     const type = btn.dataset.type, id = parseInt(btn.dataset.id);
@@ -583,8 +660,11 @@ function closePlayer() {
     stopProgressSave();
     currentEpisodeId = null;
 
+    saveOnlineProgress();
     iframe.src = '';
     iframe.style.display = 'none';
+    const badge = document.getElementById('online-badge');
+    if (badge) badge.classList.add('hidden');
     modal.classList.add('hidden');
     document.body.style.overflow = '';
 }

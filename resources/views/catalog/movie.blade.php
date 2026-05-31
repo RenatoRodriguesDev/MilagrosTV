@@ -77,6 +77,13 @@
                 </button>
                 @endif
 
+                @if($movie->tmdb_id)
+                <button onclick="playMovieOnline()"
+                    class="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg text-sm font-semibold transition">
+                    🌐 Ver Online
+                </button>
+                @endif
+
                 <button onclick="openTorrents('{{ addslashes($movie->original_title ?? $movie->title) }}', 'movie')"
                     class="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
                     {{ __('torrent.find_streams') }}
@@ -110,6 +117,31 @@
         </div>
         <div id="movie-plyr-wrap" style="display:block;">
             <video id="movie-video-player" controls playsinline style="width:100%;border-radius:12px;"></video>
+        </div>
+    </div>
+</div>
+@endif
+
+{{-- Online player modal --}}
+@if($movie->tmdb_id)
+<div id="online-modal" class="hidden fixed inset-0 z-[9997] flex items-center justify-center p-4" style="background:#000;">
+    <div class="w-full max-w-5xl">
+        <div class="flex items-center justify-between mb-3">
+            <div class="flex items-center gap-3">
+                <p class="text-gray-300 text-sm font-medium">{{ $movie->localTitle() }} · 🌐 Online</p>
+                <div class="flex items-center gap-1.5">
+                    <span class="text-gray-600 text-xs">Fonte:</span>
+                    <button id="msrc-0" onclick="switchMovieSource(0)" class="text-xs px-2 py-1 rounded bg-red-600 text-white">1</button>
+                    <button id="msrc-1" onclick="switchMovieSource(1)" class="text-xs px-2 py-1 rounded bg-white/10 text-gray-400 hover:bg-white/20">2</button>
+                    <button id="msrc-2" onclick="switchMovieSource(2)" class="text-xs px-2 py-1 rounded bg-white/10 text-gray-400 hover:bg-white/20">3</button>
+                </div>
+            </div>
+            <button onclick="closeOnlineModal()" class="text-gray-400 hover:text-white text-sm">✕ Fechar</button>
+        </div>
+        <div style="background:#000;border-radius:12px;line-height:0;">
+            <iframe id="online-iframe" frameborder="0" allowfullscreen
+                allow="autoplay; fullscreen"
+                style="width:100%;height:75vh;border:none;border-radius:12px;"></iframe>
         </div>
     </div>
 </div>
@@ -282,6 +314,42 @@ function closeMoviePlayer() {
 
 document.getElementById('movie-player-modal')?.addEventListener('click', function(e) {
     if (e.target === this) closeMoviePlayer();
+});
+@endif
+
+@if($movie->tmdb_id)
+// Online movie player
+const MOVIE_TMDB_ID = '{{ $movie->tmdb_id }}';
+const MOVIE_SOURCES = [
+    () => `https://vidsrc.to/embed/movie/${MOVIE_TMDB_ID}`,
+    () => `https://vidsrc.xyz/embed/movie?tmdb=${MOVIE_TMDB_ID}`,
+    () => `https://embed.su/embed/movie/${MOVIE_TMDB_ID}`,
+];
+
+function playMovieOnline() {
+    document.getElementById('online-modal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+    switchMovieSource(0);
+}
+
+function switchMovieSource(idx) {
+    document.getElementById('online-iframe').src = MOVIE_SOURCES[idx]();
+    MOVIE_SOURCES.forEach((_, i) => {
+        const btn = document.getElementById(`msrc-${i}`);
+        if (btn) btn.className = i === idx
+            ? 'text-xs px-2 py-1 rounded bg-red-600 text-white'
+            : 'text-xs px-2 py-1 rounded bg-white/10 text-gray-400 hover:bg-white/20';
+    });
+}
+
+function closeOnlineModal() {
+    document.getElementById('online-modal').classList.add('hidden');
+    document.getElementById('online-iframe').src = '';
+    document.body.style.overflow = '';
+}
+
+document.getElementById('online-modal')?.addEventListener('click', function(e) {
+    if (e.target === this) closeOnlineModal();
 });
 @endif
 
