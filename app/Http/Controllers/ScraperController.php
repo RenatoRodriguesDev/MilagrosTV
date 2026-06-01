@@ -15,33 +15,143 @@ class ScraperController extends Controller
         'Cache-Control'   => 'no-cache',
     ];
 
+    // Find a movie on piratahub.to
+    public function findMovie(Request $request)
+    {
+        $slug    = trim($request->input('slug', ''));
+        $esSlug  = trim($request->input('es_slug', ''));
+        $title   = trim($request->input('title', ''));
+        $tmdbId  = trim($request->input('tmdb_id', ''));
+        $debug   = $request->boolean('debug');
+        abort_unless((bool) ($slug || $esSlug || $title), 400);
+
+        $log = [];
+
+        // Build slug candidates — LATAM Spanish (es-MX) is what piratahub.to uses
+        $slugCandidates = array_filter(array_unique([$esSlug, $slug]));
+        if ($tmdbId) {
+            $latamTitle = $this->tmdbLatamTitle($tmdbId);
+            $log['latam_title'] = $latamTitle;
+            if ($latamTitle) $slugCandidates[] = \Illuminate\Support\Str::slug($latamTitle);
+            $slugCandidates = array_unique($slugCandidates);
+        }
+
+        $log['slug_candidates'] = array_values($slugCandidates);
+
+        // 3. Try /pelicula/{slug}/ and /{slug}/ for all candidates
+        foreach ($slugCandidates as $s) {
+            foreach (["https://piratahub.to/pelicula/{$s}/", "https://piratahub.to/{$s}/"] as $url) {
+                try {
+                    $response = Http::withHeaders($this->headers + ['Referer' => 'https://piratahub.to/'])->timeout(12)->get($url);
+                    $log['tried'][] = $url . ' → ' . $response->status();
+                    if (!$response->successful()) continue;
+                    $result = $this->extractEmbed($response->body(), 'piratahub.to');
+                    if ($result) return response()->json($result + ['matched_url' => $url]);
+                } catch (\Throwable $e) {
+                    $log['tried'][] = $url . ' → error: ' . $e->getMessage();
+                }
+            }
+        }
+
+        // 4. Piratahub site search — scrape /?s=keywords and follow /pelicula/ links
+        if ($title) {
+            $keywords = trim(explode(':', $title)[0]); // "Jack Ryan de Tom Clancy"
+            $log['site_search_term'] = $keywords;
+
+            // Significant words from the title (>3 chars, ignore common Spanish articles)
+            $stopWords  = ['de', 'del', 'la', 'el', 'los', 'las', 'en', 'por', 'con', 'un', 'una', 'the', 'of'];
+            $sigWords   = array_filter(
+                explode(' ', strtolower($keywords)),
+                fn($w) => \strlen($w) > 3 && !\in_array($w, $stopWords)
+            );
+
+            try {
+                $searchHtml = Http::withHeaders($this->headers + ['Referer' => 'https://piratahub.to/'])
+                    ->timeout(12)
+                    ->get('https://piratahub.to/', ['s' => $keywords])
+                    ->body();
+
+                preg_match_all('#https://piratahub\.to/pelicula/[^"\'<>\s]+/#', $searchHtml, $links);
+                $allLinks = array_unique($links[0] ?? []);
+
+                // Keep only links whose slug contains ≥2 significant words from the title
+                $peliculaLinks = array_filter($allLinks, function ($link) use ($sigWords) {
+                    $slug    = strtolower(basename(rtrim($link, '/')));
+                    $matches = 0;
+                    foreach ($sigWords as $w) {
+                        if (str_contains($slug, $w)) $matches++;
+                    }
+                    return $matches >= 2;
+                });
+
+                $log['site_search_all']      = $allLinks;
+                $log['site_search_filtered'] = array_values($peliculaLinks);
+
+                foreach ($peliculaLinks as $link) {
+                    try {
+                        $response = Http::withHeaders($this->headers + ['Referer' => 'https://piratahub.to/'])->timeout(12)->get($link);
+                        if (!$response->successful()) continue;
+                        $result = $this->extractEmbed($response->body(), 'piratahub.to');
+                        if ($result) return response()->json($result + ['matched_url' => $link]);
+                    } catch (\Throwable) {}
+                }
+            } catch (\Throwable $e) {
+                $log['site_search_error'] = $e->getMessage();
+            }
+        }
+
+        $response = ['error' => 'Filme não encontrado no piratahub.to'];
+        if ($debug) $response['debug'] = $log;
+        return response()->json($response, 404);
+    }
+
+    // piratahub.to uses Latin American Spanish titles (es-MX), not Spain Spanish (es-ES)
+    private function tmdbLatamTitle(string $tmdbId, string $type = 'movie'): ?string
+    {
+        $key = config('services.tmdb.key');
+        if (!$key) return null;
+        try {
+            $endpoint = $type === 'tv' ? "tv/{$tmdbId}" : "movie/{$tmdbId}";
+            $data = Http::timeout(8)
+                ->get("https://api.themoviedb.org/3/{$endpoint}", ['api_key' => $key, 'language' => 'es-MX'])
+                ->json();
+            return $data['name'] ?? $data['title'] ?? null;
+        } catch (\Throwable) {
+            return null;
+        }
+    }
+
     // Try multiple piratahub.to URL patterns and return embed URL from the first that works
     public function find(Request $request)
     {
         $slug    = trim($request->input('slug', ''));
+        $tmdbId  = trim($request->input('tmdb_id', ''));
         $season  = (int) $request->input('season', 1);
         $episode = (int) $request->input('episode', 1);
 
-        abort_unless($slug, 400);
+        abort_unless($slug !== '', 400);
 
-        $candidates = [
-            "https://piratahub.to/{$slug}-temporada-{$season}/capitulo-{$episode}/",
-            "https://piratahub.to/{$slug}/capitulo-{$episode}/",
-            "https://piratahub.to/{$slug}/temporada-{$season}-capitulo-{$episode}/",
-            "https://piratahub.to/{$slug}-temporada-{$season}/capitulo-{$episode}-2/", // some sites add -2 suffix
-        ];
-
-        // Season 1 sometimes has no season suffix at all — already covered above.
-        // For season > 1 remove bare /capitulo-N/ pattern (would match season 1 episodes).
-        if ($season > 1) {
-            $candidates = array_filter($candidates, fn($u) => str_contains($u, "temporada-{$season}"));
+        // Build slug candidates — also try es-MX title (what piratahub uses)
+        $slugs = [$slug];
+        if ($tmdbId) {
+            $latamTitle = $this->tmdbLatamTitle($tmdbId, 'tv');
+            if ($latamTitle) $slugs[] = \Illuminate\Support\Str::slug($latamTitle);
+            $slugs = array_unique($slugs);
         }
 
-        foreach ($candidates as $url) {
+        $candidates = [];
+        foreach ($slugs as $s) {
+            $candidates[] = "https://piratahub.to/{$s}-temporada-{$season}/capitulo-{$episode}/";
+            if ($season === 1) {
+                $candidates[] = "https://piratahub.to/{$s}/capitulo-{$episode}/";
+            }
+            $candidates[] = "https://piratahub.to/{$s}/temporada-{$season}-capitulo-{$episode}/";
+        }
+
+        foreach (array_unique($candidates) as $url) {
             try {
                 $response = Http::withHeaders($this->headers + ['Referer' => 'https://piratahub.to/'])->timeout(12)->get($url);
                 if (!$response->successful()) continue;
-
                 $result = $this->extractEmbed($response->body(), parse_url($url, PHP_URL_HOST));
                 if ($result) return response()->json($result);
             } catch (\Throwable) {

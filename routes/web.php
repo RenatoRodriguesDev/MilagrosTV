@@ -62,6 +62,7 @@ Route::middleware('auth')->group(function () {
     // Scraper (extract player from external sites)
     Route::get('/scrape', [\App\Http\Controllers\ScraperController::class, 'extract'])->name('scrape.extract');
     Route::get('/scrape/find', [\App\Http\Controllers\ScraperController::class, 'find'])->name('scrape.find');
+    Route::get('/scrape/find-movie', [\App\Http\Controllers\ScraperController::class, 'findMovie'])->name('scrape.find-movie');
 
     // Watchlist
     Route::get('/watchlist', [WatchlistController::class, 'index'])->name('watchlist.index');

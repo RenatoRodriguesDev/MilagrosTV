@@ -100,7 +100,7 @@ class TmdbService
 
     public function fetchTranslations(int $tmdbId, string $type): array
     {
-        $langMap  = ['pt' => 'pt-BR', 'en' => 'en-US', 'es' => 'es-ES'];
+        $langMap  = ['pt' => 'pt-BR', 'en' => 'en-US', 'es' => 'es-MX'];
         $titleKey = $type === 'tv' ? 'name' : 'title';
         $translations = [];
 

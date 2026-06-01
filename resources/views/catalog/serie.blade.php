@@ -214,26 +214,49 @@ document.getElementById('trailer-modal')?.addEventListener('click', function(e) 
             </div>
 
             {{-- Action --}}
-            @if($ep->video_path)
-            <div class="flex-shrink-0 flex items-center gap-2">
-                @if($ep->isExternalUrl())
-                <span class="text-blue-400 text-xs font-semibold flex items-center gap-1">
-                    <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
-                    Abrir
-                </span>
-                @elseif(isset($progress[$ep->id]) && !$progress[$ep->id]->completed && $progress[$ep->id]->position > 30)
-                <span class="text-orange-400 text-xs font-semibold">{{ __('player.continue') }}</span>
+            @php
+                $isWatched = isset($progress[$ep->id]) && $progress[$ep->id]->completed;
+                $hasContinue = isset($progress[$ep->id]) && !$progress[$ep->id]->completed && $progress[$ep->id]->position > 30;
+            @endphp
+            <div class="flex-shrink-0 flex items-center gap-1.5">
+
+                @if($ep->video_path)
+                    {{-- Local/external play button (handled by row onclick) --}}
+                    @if($ep->isExternalUrl())
+                    <span class="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-lg font-semibold bg-blue-500/10 border border-blue-500/20 text-blue-400">
+                        <svg class="w-3 h-3 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> Abrir
+                    </span>
+                    @elseif($hasContinue)
+                    <span class="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-lg font-semibold bg-orange-500/10 border border-orange-500/20 text-orange-400">
+                        <svg class="w-3 h-3 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> Continuar
+                    </span>
+                    @else
+                    <span class="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-lg font-semibold bg-red-600/10 border border-red-600/20 text-red-400">
+                        <svg class="w-3 h-3 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> Play
+                    </span>
+                    @endif
                 @else
-                <span class="text-red-500 text-sm font-bold">{{ __('serie.play') }}</span>
+                    {{-- Online sources --}}
+                    @if($serie->tmdb_id)
+                    <button onclick="event.stopPropagation(); playOnline({{ $ep->season }}, {{ $ep->episode }}, '{{ addslashes($ep->title ?: 'T'.$ep->season.'E'.$ep->episode) }}', {{ $ep->id }})"
+                        class="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-lg font-semibold bg-white/5 hover:bg-green-600/20 border border-white/10 hover:border-green-500/40 text-gray-400 hover:text-green-400 transition">
+                        <svg class="w-3 h-3 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> Online
+                    </button>
+                    @endif
                 @endif
+
+                {{-- ESP button (always shown) --}}
                 <button onclick="event.stopPropagation(); playPiratahub(this)"
                     data-url="{{ $ep->piratahub_url }}"
                     data-episode="{{ $ep->episode }}"
                     data-season="{{ $ep->season }}"
+                    data-epid="{{ $ep->id }}"
                     data-label="{{ addslashes($ep->label) }}"
-                    title="Ver em espanhol"
-                    class="text-yellow-500 hover:text-yellow-300 text-xs font-semibold transition flex-shrink-0">🇪🇸</button>
-                @php $isWatched = isset($progress[$ep->id]) && $progress[$ep->id]->completed; @endphp
+                    class="flex items-center gap-1 text-[11px] px-2.5 py-1 rounded-lg font-semibold bg-white/5 hover:bg-yellow-500/20 border border-white/10 hover:border-yellow-500/40 text-gray-400 hover:text-yellow-400 transition">
+                    <svg class="w-3 h-3 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> ES
+                </button>
+
+                {{-- Watched toggle --}}
                 <button onclick="event.stopPropagation(); toggleEpWatched({{ $ep->id }}, this)"
                     title="{{ $isWatched ? __('episode.mark_unwatched') : __('episode.mark_watched') }}"
                     data-watched="{{ $isWatched ? '1' : '0' }}"
@@ -245,34 +268,6 @@ document.getElementById('trailer-modal')?.addEventListener('click', function(e) 
                     @endif
                 </button>
             </div>
-            @else
-            <div class="flex items-center gap-2 flex-shrink-0">
-                @if($serie->tmdb_id)
-                <button onclick="event.stopPropagation(); playOnline({{ $ep->season }}, {{ $ep->episode }}, '{{ addslashes($ep->title ?: 'T'.$ep->season.'E'.$ep->episode) }}', {{ $ep->id }})"
-                    class="text-green-400 hover:text-green-300 text-xs font-semibold transition flex items-center gap-1">
-                    🌐 <span>Online</span>
-                </button>
-                @endif
-                <button onclick="event.stopPropagation(); playPiratahub(this)"
-                    data-url="{{ $ep->piratahub_url }}"
-                    data-episode="{{ $ep->episode }}"
-                    data-season="{{ $ep->season }}"
-                    data-label="{{ addslashes($ep->label) }}"
-                    title="Ver em espanhol"
-                    class="text-yellow-500 hover:text-yellow-300 text-xs font-semibold transition flex-shrink-0">🇪🇸</button>
-                @php $isWatched2 = isset($progress[$ep->id]) && $progress[$ep->id]->completed; @endphp
-                <button onclick="event.stopPropagation(); toggleEpWatched({{ $ep->id }}, this)"
-                    title="{{ $isWatched2 ? __('episode.mark_unwatched') : __('episode.mark_watched') }}"
-                    data-watched="{{ $isWatched2 ? '1' : '0' }}"
-                    class="transition p-1 rounded hover:bg-white/10 {{ $isWatched2 ? 'text-green-400' : 'text-gray-500 hover:text-green-400' }}">
-                    @if($isWatched2)
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/></svg>
-                    @else
-                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21"/></svg>
-                    @endif
-                </button>
-            </div>
-            @endif
         </div>
         @endforeach
     </div>
@@ -354,6 +349,7 @@ async function playPiratahub(btn) {
     const episode     = btn.dataset.episode;
     const season      = btn.dataset.season;
     const label       = btn.dataset.label;
+    const epId        = btn.dataset.epid || null;
 
     const iframe = document.getElementById('iframe-player');
     const modal  = document.getElementById('player-modal');
@@ -377,7 +373,7 @@ async function playPiratahub(btn) {
             fetchUrl = '/scrape?url=' + encodeURIComponent(overrideUrl);
         } else {
             // Auto-find using slug + season + episode (tries multiple URL patterns)
-            fetchUrl = `/scrape/find?slug=${encodeURIComponent(PIRATAHUB_SLUG)}&season=${season}&episode=${episode}`;
+            fetchUrl = `/scrape/find?slug=${encodeURIComponent(PIRATAHUB_SLUG)}&tmdb_id=${encodeURIComponent(TMDB_ID)}&season=${season}&episode=${episode}`;
         }
 
         const res  = await fetch(fetchUrl);
@@ -385,6 +381,16 @@ async function playPiratahub(btn) {
         if (data.url) {
             iframe.src = data.url;
             lbl.textContent = label + ' · 🇪🇸 ESP';
+            // Start watch progress tracking (same as playOnline)
+            if (epId) {
+                _onlineEpId      = epId;
+                _onlineStartTime = Date.now();
+                _onlineBasePos   = 0;
+                fetch(`/progress/${epId}`)
+                    .then(r => r.json())
+                    .then(p => { _onlineBasePos = p.position || 0; })
+                    .catch(() => {});
+            }
         } else {
             closePlayer();
             alert('Episódio não disponível em espanhol.\n' + (data.error || ''));

@@ -80,16 +80,14 @@
                 @if($movie->tmdb_id)
                 <button onclick="playMovieOnline()"
                     class="flex items-center gap-2 bg-green-600 hover:bg-green-700 text-white px-5 py-2 rounded-lg text-sm font-semibold transition">
-                    🌐 Ver Online
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> Online
                 </button>
                 @endif
 
-                @if($movie->piratahub_url)
                 <button onclick="playMoviePiratahub()"
                     class="flex items-center gap-2 bg-yellow-600/80 hover:bg-yellow-600 text-white px-5 py-2 rounded-lg text-sm font-semibold transition">
-                    🇪🇸 Ver em ESP
+                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg> ESP
                 </button>
-                @endif
 
                 @if($movie->trailer_url)
                 <button id="trailer-btn"
@@ -201,37 +199,44 @@ document.getElementById('movie-player-modal')?.addEventListener('click', functio
 });
 @endif
 
-@if($movie->piratahub_url)
-// Piratahub ESP player
+// Piratahub ESP player (auto-slug from Spanish title)
+@php
+    $movieTranslations = is_array($movie->translations) ? $movie->translations : json_decode($movie->translations ?? '{}', true);
+    $movieEsTitle      = $movieTranslations['es']['title'] ?? $movie->original_title ?? $movie->title;
+    $moviePiratahubSlug = $movie->piratahub_url ? null : \Illuminate\Support\Str::slug($movieEsTitle);
+@endphp
 async function playMoviePiratahub() {
     const modal  = document.getElementById('online-modal');
     const iframe = document.getElementById('online-iframe');
-    const title  = modal.querySelector('p.text-gray-300');
+    const titleEl = modal.querySelector('p.text-gray-300');
 
     iframe.src = 'about:blank';
-    if (title) title.textContent = '{{ addslashes($movie->localTitle()) }} · 🇪🇸 ESP (a carregar...)';
-    document.getElementById('online-modal').classList.remove('hidden');
+    if (titleEl) titleEl.textContent = '{{ addslashes($movie->localTitle()) }} · 🇪🇸 ESP (a carregar...)';
+    modal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
-
-    // Hide source switcher
     document.querySelectorAll('[id^="msrc-"]').forEach(b => b.style.display = 'none');
 
     try {
-        const res  = await fetch('/scrape?url=' + encodeURIComponent('{{ $movie->piratahub_url }}'));
+        @if($movie->piratahub_url)
+        const scrapeUrl = '/scrape?url=' + encodeURIComponent('{{ $movie->piratahub_url }}');
+        @else
+        const scrapeUrl = '/scrape/find-movie?tmdb_id={{ $movie->tmdb_id }}&slug={{ $moviePiratahubSlug }}&es_slug={{ \Illuminate\Support\Str::slug($movieEsTitle) }}&title=' + encodeURIComponent('{{ addslashes($movieEsTitle) }}');
+        @endif
+
+        const res  = await fetch(scrapeUrl);
         const data = await res.json();
         if (data.url) {
             iframe.src = data.url;
-            if (title) title.textContent = '{{ addslashes($movie->localTitle()) }} · 🇪🇸 ESP';
+            if (titleEl) titleEl.textContent = '{{ addslashes($movie->localTitle()) }} · 🇪🇸 ESP';
         } else {
             closeOnlineModal();
-            alert('Fonte ESP indisponível: ' + (data.error || 'Sem player encontrado'));
+            alert('Filme não disponível em espanhol.\n' + (data.error || ''));
         }
     } catch (e) {
         closeOnlineModal();
         alert('Erro ao carregar a fonte ESP.');
     }
 }
-@endif
 
 @if($movie->tmdb_id)
 // Online movie player
