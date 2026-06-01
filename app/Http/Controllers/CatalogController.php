@@ -65,9 +65,10 @@ class CatalogController extends Controller
         $allGenres        = $this->getAllGenres();
         $continueWatching = $this->getContinueWatching();
 
-        // Carrosséis por género (só quando não há pesquisa/filtro activo)
+        // Carrosséis por género (só quando não há pesquisa/filtro activo e não forçar grelha)
         $carousels = [];
-        if (!$search && !$genre && $type === 'all') {
+        $forceGrid = $request->boolean('grid');
+        if (!$search && !$genre && $type === 'all' && !$forceGrid) {
             $carousels = $this->getCarousels();
         }
 
@@ -138,7 +139,32 @@ class CatalogController extends Controller
 
     private function getCarousels(): array
     {
+        // Build carousels directly (no cache — avoids Redis serialization issues)
         $carousels = [];
+
+        // Melhor avaliados
+        $topRated = Movie::orderByDesc('rating')->limit(20)->get()
+            ->merge(Serie::orderByDesc('rating')->limit(20)->get())
+            ->sortByDesc('rating')->take(20);
+        if ($topRated->isNotEmpty()) {
+            $carousels[] = ['title' => __('catalog.top_rated'), 'icon' => '⭐', 'link' => '?grid=1&sort=rating&order=desc', 'items' => $topRated];
+        }
+
+        // Recém adicionados
+        $recent = Movie::latest()->limit(15)->get()
+            ->merge(Serie::latest()->limit(15)->get())
+            ->sortByDesc('created_at')->take(20);
+        if ($recent->isNotEmpty()) {
+            $carousels[] = ['title' => __('catalog.recently_added'), 'icon' => '🆕', 'link' => '?grid=1&sort=added&order=desc', 'items' => $recent];
+        }
+
+        // Géneros
+        foreach ($this->getAllGenres() as $g) {
+            $items = $this->getItemsByGenre($g, 20);
+            if ($items->count() >= 3) {
+                $carousels[] = ['title' => $g, 'icon' => '', 'link' => '?grid=1&genre=' . urlencode($g), 'items' => $items];
+            }
+        }
 
         // 1. "Porque viste X" — baseado no histórico do utilizador
         if (Auth::check()) {
@@ -156,35 +182,16 @@ class CatalogController extends Controller
                 });
             arsort($watchedGenres);
             if (!empty($watchedGenres)) {
-                $topGenre = array_key_first($watchedGenres);
-                $items    = $this->getItemsByGenre($topGenre, 20);
-                if ($items->isNotEmpty()) {
-                    $carousels[] = ['title' => __('catalog.because_you_watched') . ' ' . $topGenre, 'items' => $items, 'icon' => '🎯'];
+                $topGenre  = array_key_first($watchedGenres);
+                $userItems = $this->getItemsByGenre($topGenre, 20);
+                if ($userItems->isNotEmpty()) {
+                    array_unshift($carousels, [
+                        'title' => __('catalog.because_you_watched') . ' ' . $topGenre,
+                        'items' => $userItems,
+                        'icon'  => '🎯',
+                        'link'  => '?grid=1&genre=' . urlencode($topGenre),
+                    ]);
                 }
-            }
-        }
-
-        // 2. Melhor avaliados
-        $topRated = Movie::orderByDesc('rating')->limit(20)->get()
-            ->merge(Serie::orderByDesc('rating')->limit(20)->get())
-            ->sortByDesc('rating')->take(20);
-        if ($topRated->isNotEmpty()) {
-            $carousels[] = ['title' => __('catalog.top_rated'), 'items' => $topRated, 'icon' => '⭐'];
-        }
-
-        // 3. Recém adicionados
-        $recent = Movie::latest()->limit(15)->get()
-            ->merge(Serie::latest()->limit(15)->get())
-            ->sortByDesc('created_at')->take(20);
-        if ($recent->isNotEmpty()) {
-            $carousels[] = ['title' => __('catalog.recently_added'), 'items' => $recent, 'icon' => '🆕'];
-        }
-
-        // 4. Todos os géneros com conteúdo
-        foreach ($this->getAllGenres() as $g) {
-            $items = $this->getItemsByGenre($g, 20);
-            if ($items->count() >= 3) {
-                $carousels[] = ['title' => $g, 'items' => $items, 'icon' => ''];
             }
         }
 

@@ -55,6 +55,7 @@ class SerieController extends Controller
 
         Serie::create($data);
 
+        \Illuminate\Support\Facades\Cache::flush();
         return redirect()->route('admin.series.index')->with('success', 'Série adicionada com sucesso!');
     }
 

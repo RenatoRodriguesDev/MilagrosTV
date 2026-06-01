@@ -53,6 +53,7 @@ class MovieController extends Controller
 
         Movie::create($data);
 
+        \Illuminate\Support\Facades\Cache::flush();
         return redirect()->route('admin.movies.index')->with('success', 'Filme adicionado com sucesso!');
     }
 

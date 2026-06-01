@@ -58,7 +58,7 @@
 {{-- Filter bar — sempre visível para pesquisar, mas compacto no modo carrossel --}}
 <div class="sticky top-14 z-40 bg-[#0a0a0a]/95 backdrop-blur border-b border-white/5 px-4 py-3">
     <div class="max-w-7xl mx-auto">
-        @if(!$search && !$genre && $type === 'all' && !empty($carousels))
+        @if(!empty($carousels))
         {{-- Modo carrossel: só pesquisa (compacto) --}}
         <form method="GET" action="{{ route('catalog.index') }}" class="flex gap-2 items-center">
             <div class="relative flex-1 max-w-sm">
@@ -172,15 +172,26 @@
     @endif
 
     {{-- Carrosséis por género (vista padrão sem filtros) --}}
-    @if(!$search && !$genre && $type === 'all' && !empty($carousels))
+    @if(!empty($carousels))
         @foreach($carousels as $ci => $carousel)
         <section class="mb-8 fade-in">
             <div class="flex items-center justify-between mb-4">
-                <h2 class="text-lg font-bold text-white">
-                    @if($carousel['icon']) <span class="mr-1.5">{{ $carousel['icon'] }}</span> @endif
-                    {{ $carousel['title'] }}
-                </h2>
-                <div class="flex gap-1">
+                <div class="flex items-center gap-2">
+                    @if($carousel['icon'])<span>{{ $carousel['icon'] }}</span>@endif
+                    @if(!empty($carousel['link']))
+                    <a href="{{ route('catalog.index') }}{{ $carousel['link'] }}"
+                       class="text-lg font-bold text-white hover:text-red-400 transition">{{ $carousel['title'] }}</a>
+                    @else
+                    <h2 class="text-lg font-bold text-white">{{ $carousel['title'] }}</h2>
+                    @endif
+                </div>
+                <div class="flex items-center gap-2">
+                    @if(!empty($carousel['link']))
+                    <a href="{{ route('catalog.index') }}{{ $carousel['link'] }}"
+                       class="text-xs text-gray-500 hover:text-white transition hidden sm:block">
+                        {{ __('catalog.see_all') }} →
+                    </a>
+                    @endif
                     <button class="swiper-prev-{{ $ci }} w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition text-lg disabled:opacity-30">‹</button>
                     <button class="swiper-next-{{ $ci }} w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition text-lg disabled:opacity-30">›</button>
                 </div>
@@ -266,6 +277,7 @@ new Swiper('.swiper-carousel-{{ $ci }}', {
     slidesPerView: 2.3,
     spaceBetween: 12,
     grabCursor: true,
+    lazy: { loadPrevNext: true, loadPrevNextAmount: 2 },
     navigation: {
         nextEl: '.swiper-next-{{ $ci }}',
         prevEl: '.swiper-prev-{{ $ci }}',
