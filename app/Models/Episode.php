@@ -6,7 +6,7 @@ use Illuminate\Database\Eloquent\Model;
 
 class Episode extends Model
 {
-    protected $fillable = ['serie_id', 'season', 'episode', 'title', 'video_path'];
+    protected $fillable = ['serie_id', 'season', 'episode', 'title', 'video_path', 'piratahub_url'];
 
     public function serie()
     {

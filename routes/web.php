@@ -59,6 +59,10 @@ Route::middleware('auth')->group(function () {
     Route::post('/progress/{episode}', [WatchProgressController::class, 'store'])->name('progress.store');
     Route::delete('/progress/{episode}/dismiss', [WatchProgressController::class, 'destroy'])->name('progress.dismiss');
 
+    // Scraper (extract player from external sites)
+    Route::get('/scrape', [\App\Http\Controllers\ScraperController::class, 'extract'])->name('scrape.extract');
+    Route::get('/scrape/find', [\App\Http\Controllers\ScraperController::class, 'find'])->name('scrape.find');
+
     // Watchlist
     Route::get('/watchlist', [WatchlistController::class, 'index'])->name('watchlist.index');
     Route::post('/watchlist', [WatchlistController::class, 'toggle'])->name('watchlist.toggle');

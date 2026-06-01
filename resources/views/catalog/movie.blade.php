@@ -84,6 +84,13 @@
                 </button>
                 @endif
 
+                @if($movie->piratahub_url)
+                <button onclick="playMoviePiratahub()"
+                    class="flex items-center gap-2 bg-yellow-600/80 hover:bg-yellow-600 text-white px-5 py-2 rounded-lg text-sm font-semibold transition">
+                    🇪🇸 Ver em ESP
+                </button>
+                @endif
+
                 @if($movie->trailer_url)
                 <button id="trailer-btn"
                     class="flex items-center gap-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
@@ -192,6 +199,38 @@ function closeMoviePlayer() {
 document.getElementById('movie-player-modal')?.addEventListener('click', function(e) {
     if (e.target === this) closeMoviePlayer();
 });
+@endif
+
+@if($movie->piratahub_url)
+// Piratahub ESP player
+async function playMoviePiratahub() {
+    const modal  = document.getElementById('online-modal');
+    const iframe = document.getElementById('online-iframe');
+    const title  = modal.querySelector('p.text-gray-300');
+
+    iframe.src = 'about:blank';
+    if (title) title.textContent = '{{ addslashes($movie->localTitle()) }} · 🇪🇸 ESP (a carregar...)';
+    document.getElementById('online-modal').classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+
+    // Hide source switcher
+    document.querySelectorAll('[id^="msrc-"]').forEach(b => b.style.display = 'none');
+
+    try {
+        const res  = await fetch('/scrape?url=' + encodeURIComponent('{{ $movie->piratahub_url }}'));
+        const data = await res.json();
+        if (data.url) {
+            iframe.src = data.url;
+            if (title) title.textContent = '{{ addslashes($movie->localTitle()) }} · 🇪🇸 ESP';
+        } else {
+            closeOnlineModal();
+            alert('Fonte ESP indisponível: ' + (data.error || 'Sem player encontrado'));
+        }
+    } catch (e) {
+        closeOnlineModal();
+        alert('Erro ao carregar a fonte ESP.');
+    }
+}
 @endif
 
 @if($movie->tmdb_id)

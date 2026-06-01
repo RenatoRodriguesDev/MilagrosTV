@@ -161,7 +161,13 @@
                             {{ $ep->hasVideo() ? '✓' : '✗' }}
                         </span>
                         @endif
+                        <button onclick="togglePiratahub(this)" class="text-[10px] flex-shrink-0 px-1 {{ $ep->piratahub_url ? 'text-yellow-400' : 'text-gray-600 hover:text-yellow-500' }} transition" title="URL piratahub.to">🇪🇸</button>
                         <button onclick="deleteEp({{ $ep->id }}, this)" class="text-gray-600 hover:text-red-400 text-xs transition flex-shrink-0 px-1">✕</button>
+                    </div>
+                    <div class="piratahub-row mt-1.5 {{ $ep->piratahub_url ? '' : 'hidden' }}">
+                        <input type="text" value="{{ $ep->piratahub_url }}" placeholder="https://piratahub.to/..."
+                            class="ep-piratahub w-full bg-transparent border-b border-yellow-500/30 hover:border-yellow-500/50 focus:border-yellow-500 text-xs text-yellow-300/70 focus:outline-none px-1 py-0.5 transition"
+                            data-id="{{ $ep->id }}" data-field="piratahub_url">
                     </div>
                 </div>
                 @endforeach
@@ -198,14 +204,20 @@ function clearSelection() {
     onCheckChange();
 }
 
+function togglePiratahub(btn) {
+    const row = btn.closest('.episode-row').querySelector('.piratahub-row');
+    row.classList.toggle('hidden');
+}
+
 async function bulkSave() {
     const episodes = {};
     document.querySelectorAll('.ep-check:checked').forEach(cb => {
-        const id = cb.dataset.id;
+        const id  = cb.dataset.id;
         const row = cb.closest('.episode-row');
         episodes[id] = {
-            title:      row.querySelector('.ep-title')?.value || '',
-            video_path: row.querySelector('.ep-path')?.value || '',
+            title:         row.querySelector('.ep-title')?.value || '',
+            video_path:    row.querySelector('.ep-path')?.value || '',
+            piratahub_url: row.querySelector('.ep-piratahub')?.value || '',
         };
     });
     const res = await fetch(bulkUpdateRoute, {

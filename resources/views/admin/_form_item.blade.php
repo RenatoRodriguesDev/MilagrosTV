@@ -103,6 +103,26 @@
                         class="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-red-500">
                     <p class="text-xs text-gray-600 mt-1">Relativo à pasta <code>videos/</code></p>
                 </div>
+                <div class="sm:col-span-2">
+                    <label class="block text-sm text-gray-400 mb-1">🇪🇸 URL piratahub.to (ESP dublado)</label>
+                    <input type="url" name="piratahub_url" id="field-piratahub_url"
+                        value="{{ old('piratahub_url', $item?->piratahub_url) }}"
+                        placeholder="https://piratahub.to/filme-nome/"
+                        class="w-full bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-red-500">
+                </div>
+                @else
+                <div class="sm:col-span-2">
+                    <label class="block text-sm text-gray-400 mb-1">🇪🇸 Slug piratahub.to (ESP dublado)</label>
+                    <div class="flex items-center gap-2">
+                        <span class="text-gray-500 text-sm flex-shrink-0">piratahub.to/</span>
+                        <input type="text" name="piratahub_slug" id="field-piratahub_slug"
+                            value="{{ old('piratahub_slug', $item?->piratahub_slug) }}"
+                            placeholder="star-city"
+                            class="flex-1 bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-yellow-500">
+                        <span class="text-gray-500 text-sm flex-shrink-0">/capitulo-N/</span>
+                    </div>
+                    <p class="text-xs text-gray-600 mt-1">Preenche uma vez — todos os episódios ficam disponíveis automaticamente em 🇪🇸</p>
+                </div>
                 @endif
 
                 <div class="sm:col-span-2">

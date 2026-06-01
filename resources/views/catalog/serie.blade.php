@@ -226,6 +226,13 @@ document.getElementById('trailer-modal')?.addEventListener('click', function(e) 
                 @else
                 <span class="text-red-500 text-sm font-bold">{{ __('serie.play') }}</span>
                 @endif
+                <button onclick="event.stopPropagation(); playPiratahub(this)"
+                    data-url="{{ $ep->piratahub_url }}"
+                    data-episode="{{ $ep->episode }}"
+                    data-season="{{ $ep->season }}"
+                    data-label="{{ addslashes($ep->label) }}"
+                    title="Ver em espanhol"
+                    class="text-yellow-500 hover:text-yellow-300 text-xs font-semibold transition flex-shrink-0">🇪🇸</button>
                 @php $isWatched = isset($progress[$ep->id]) && $progress[$ep->id]->completed; @endphp
                 <button onclick="event.stopPropagation(); toggleEpWatched({{ $ep->id }}, this)"
                     title="{{ $isWatched ? __('episode.mark_unwatched') : __('episode.mark_watched') }}"
@@ -246,6 +253,13 @@ document.getElementById('trailer-modal')?.addEventListener('click', function(e) 
                     🌐 <span>Online</span>
                 </button>
                 @endif
+                <button onclick="event.stopPropagation(); playPiratahub(this)"
+                    data-url="{{ $ep->piratahub_url }}"
+                    data-episode="{{ $ep->episode }}"
+                    data-season="{{ $ep->season }}"
+                    data-label="{{ addslashes($ep->label) }}"
+                    title="Ver em espanhol"
+                    class="text-yellow-500 hover:text-yellow-300 text-xs font-semibold transition flex-shrink-0">🇪🇸</button>
                 @php $isWatched2 = isset($progress[$ep->id]) && $progress[$ep->id]->completed; @endphp
                 <button onclick="event.stopPropagation(); toggleEpWatched({{ $ep->id }}, this)"
                     title="{{ $isWatched2 ? __('episode.mark_unwatched') : __('episode.mark_watched') }}"
@@ -324,6 +338,60 @@ function hideEpisodePlyr() {
         else document.getElementById('video-player').style.display = 'none';
     } else {
         document.getElementById('video-player').style.display = 'none';
+    }
+}
+
+// ── ESP source (piratahub.to) ─────────────────────────────────────────────────
+@php
+    $translations   = is_array($serie->translations) ? $serie->translations : json_decode($serie->translations ?? '{}', true);
+    $esTitle        = $translations['es']['title'] ?? $serie->original_title ?? $serie->title;
+    $piratahubSlug  = $serie->piratahub_slug ?: \Illuminate\Support\Str::slug($esTitle);
+@endphp
+const PIRATAHUB_SLUG = '{{ $piratahubSlug }}';
+
+async function playPiratahub(btn) {
+    const overrideUrl = btn.dataset.url;
+    const episode     = btn.dataset.episode;
+    const season      = btn.dataset.season;
+    const label       = btn.dataset.label;
+
+    const iframe = document.getElementById('iframe-player');
+    const modal  = document.getElementById('player-modal');
+    const lbl    = document.getElementById('player-label');
+    const badge  = document.getElementById('online-badge');
+    const sw     = document.getElementById('online-src-switcher');
+
+    hideEpisodePlyr();
+    iframe.src = 'about:blank';
+    iframe.style.display = 'block';
+    lbl.textContent = label + ' · 🇪🇸 ESP (a carregar...)';
+    if (badge) badge.classList.remove('hidden');
+    if (sw) sw.classList.add('hidden');
+    modal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+
+    try {
+        let fetchUrl;
+        if (overrideUrl) {
+            // Episode has a specific URL override — scrape it directly
+            fetchUrl = '/scrape?url=' + encodeURIComponent(overrideUrl);
+        } else {
+            // Auto-find using slug + season + episode (tries multiple URL patterns)
+            fetchUrl = `/scrape/find?slug=${encodeURIComponent(PIRATAHUB_SLUG)}&season=${season}&episode=${episode}`;
+        }
+
+        const res  = await fetch(fetchUrl);
+        const data = await res.json();
+        if (data.url) {
+            iframe.src = data.url;
+            lbl.textContent = label + ' · 🇪🇸 ESP';
+        } else {
+            closePlayer();
+            alert('Episódio não disponível em espanhol.\n' + (data.error || ''));
+        }
+    } catch (e) {
+        closePlayer();
+        alert('Erro ao carregar a fonte ESP.');
     }
 }
 

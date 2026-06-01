@@ -141,10 +141,11 @@ class EpisodeController extends Controller
             $ep = Episode::where('id', $id)->where('serie_id', $serie->id)->first();
             if (!$ep) continue;
             $ep->update([
-                'title'      => $data['title'] ?? $ep->title,
-                'video_path' => $data['video_path'] ?? $ep->video_path,
-                'season'     => $data['season'] ?? $ep->season,
-                'episode'    => $data['episode'] ?? $ep->episode,
+                'title'         => $data['title'] ?? $ep->title,
+                'video_path'    => $data['video_path'] ?? $ep->video_path,
+                'piratahub_url' => array_key_exists('piratahub_url', $data) ? ($data['piratahub_url'] ?: null) : $ep->piratahub_url,
+                'season'        => $data['season'] ?? $ep->season,
+                'episode'       => $data['episode'] ?? $ep->episode,
             ]);
             $count++;
         }
