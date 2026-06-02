@@ -237,14 +237,27 @@ class CatalogController extends Controller
             ->toArray();
     }
 
+    // Returns ['raw_genre' => 'Localized Genre', ...] — value for filter, label for display
     private function getAllGenres(): array
     {
-        // Use raw genres column (not translated) so the dropdown value matches
-        // what whereJsonContains searches — avoids locale mismatch
-        return Movie::whereNotNull('genres')->get()
+        $locale = app()->getLocale();
+        $map    = [];
+
+        Movie::whereNotNull('genres')->get()
             ->merge(Serie::whereNotNull('genres')->get())
-            ->flatMap(fn($item) => $item->genres ?? [])
-            ->filter()->unique()->sort()->values()->toArray();
+            ->each(function ($item) use (&$map, $locale) {
+                $raw       = $item->genres ?? [];
+                $localized = $item->translations[$locale]['genres'] ?? $raw;
+                foreach ($raw as $i => $rawGenre) {
+                    if ($rawGenre && !isset($map[$rawGenre])) {
+                        $map[$rawGenre] = $localized[$i] ?? $rawGenre;
+                    }
+                }
+            });
+
+        // Sort by localized label
+        asort($map);
+        return $map;
     }
 
     private function applySortEloquent($query, string $sort, string $order)

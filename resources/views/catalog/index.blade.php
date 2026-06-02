@@ -68,8 +68,8 @@
             </div>
             <select name="genre" onchange="this.form.submit()" class="bg-white/5 border border-white/10 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-500/50 transition w-full sm:w-auto">
                 <option value="">{{ __('catalog.all_genres') }}</option>
-                @foreach($allGenres as $g)
-                    <option value="{{ $g }}" @selected($genre === $g) class="bg-gray-900">{{ $g }}</option>
+                @foreach($allGenres as $rawGenre => $label)
+                    <option value="{{ $rawGenre }}" @selected($genre === $rawGenre) class="bg-gray-900">{{ $label }}</option>
                 @endforeach
             </select>
             <div class="flex rounded-lg overflow-hidden border border-white/10 text-sm flex-shrink-0">
