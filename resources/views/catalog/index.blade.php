@@ -59,14 +59,14 @@
 @if(empty($carousels))
 <div class="sticky top-14 z-40 bg-[#0a0a0a]/95 backdrop-blur border-b border-white/5 px-4 py-3">
     <div class="max-w-7xl mx-auto">
-        <form method="GET" action="{{ route('catalog.index') }}" class="flex flex-wrap gap-2 items-center">
+        <form id="filter-form" method="GET" action="{{ route('catalog.index') }}" class="flex flex-wrap gap-2 items-center">
             <div class="relative w-full sm:w-52">
                 <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs">🔍</span>
-                <input type="text" name="search" value="{{ $search }}"
+                <input type="text" name="search" id="filter-search" value="{{ $search }}"
                     placeholder="{{ __('catalog.search_placeholder') }}"
                     class="search-input bg-white/5 border border-white/10 text-white rounded-lg pl-8 pr-3 py-2 text-sm w-full focus:outline-none focus:border-red-500/50 transition placeholder-gray-500">
             </div>
-            <select name="genre" class="bg-white/5 border border-white/10 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-500/50 transition w-full sm:w-auto">
+            <select name="genre" onchange="this.form.submit()" class="bg-white/5 border border-white/10 text-white rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-red-500/50 transition w-full sm:w-auto">
                 <option value="">{{ __('catalog.all_genres') }}</option>
                 @foreach($allGenres as $g)
                     <option value="{{ $g }}" @selected($genre === $g) class="bg-gray-900">{{ $g }}</option>
@@ -88,13 +88,22 @@
                 <option value="added"  @selected($sort==='added')  class="bg-gray-900">{{ __('catalog.sort_added') ?? 'Recentes' }}</option>
             </select>
             <input type="hidden" name="order" value="{{ $order }}">
-            <button type="submit" class="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg text-sm font-medium transition flex-shrink-0">
-                {{ __('catalog.filter') }}
-            </button>
             @if($search || $genre)
             <a href="{{ route('catalog.index', ['type' => $type]) }}" class="text-gray-500 hover:text-white text-sm transition">✕ {{ __('catalog.clear') }}</a>
             @endif
         </form>
+        <script>
+        (function() {
+            const input = document.getElementById('filter-search');
+            const form  = document.getElementById('filter-form');
+            if (!input || !form) return;
+            let t;
+            input.addEventListener('input', function() {
+                clearTimeout(t);
+                t = setTimeout(() => form.submit(), 500);
+            });
+        })();
+        </script>
     </div>
 </div>
 @endif
