@@ -88,6 +88,7 @@
                 <option value="added"  @selected($sort==='added')  class="bg-gray-900">{{ __('catalog.sort_added') ?? 'Recentes' }}</option>
             </select>
             <input type="hidden" name="order" value="{{ $order }}">
+            <input type="hidden" name="type"  value="{{ $type }}">
             @if($search || $genre)
             <a href="{{ route('catalog.index', ['type' => $type]) }}" class="text-gray-500 hover:text-white text-sm transition">✕ {{ __('catalog.clear') }}</a>
             @endif
