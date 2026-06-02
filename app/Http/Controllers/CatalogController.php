@@ -143,16 +143,16 @@ class CatalogController extends Controller
         $carousels = [];
 
         // Melhor avaliados
-        $topRated = Movie::orderByDesc('rating')->limit(20)->get()
-            ->merge(Serie::orderByDesc('rating')->limit(20)->get())
+        $topRated = collect(Movie::orderByDesc('rating')->limit(20)->get()->all())
+            ->concat(Serie::orderByDesc('rating')->limit(20)->get()->all())
             ->sortByDesc('rating')->take(20);
         if ($topRated->isNotEmpty()) {
             $carousels[] = ['title' => __('catalog.top_rated'), 'icon' => '⭐', 'link' => '?grid=1&sort=rating&order=desc', 'items' => $topRated];
         }
 
         // Recém adicionados
-        $recent = Movie::latest()->limit(15)->get()
-            ->merge(Serie::latest()->limit(15)->get())
+        $recent = collect(Movie::latest()->limit(15)->get()->all())
+            ->concat(Serie::latest()->limit(15)->get()->all())
             ->sortByDesc('created_at')->take(20);
         if ($recent->isNotEmpty()) {
             $carousels[] = ['title' => __('catalog.recently_added'), 'icon' => '🆕', 'link' => '?grid=1&sort=added&order=desc', 'items' => $recent];
@@ -200,8 +200,8 @@ class CatalogController extends Controller
 
     private function getItemsByGenre(string $genre, int $limit): \Illuminate\Support\Collection
     {
-        return Movie::whereJsonContains('genres', $genre)->orderByDesc('rating')->limit($limit)->get()
-            ->merge(Serie::whereJsonContains('genres', $genre)->orderByDesc('rating')->limit($limit)->get())
+        return collect(Movie::whereJsonContains('genres', $genre)->orderByDesc('rating')->limit($limit)->get()->all())
+            ->concat(Serie::whereJsonContains('genres', $genre)->orderByDesc('rating')->limit($limit)->get()->all())
             ->sortByDesc('rating')
             ->take($limit);
     }
@@ -244,13 +244,12 @@ class CatalogController extends Controller
         $langMap = ['pt' => 'pt-BR', 'en' => 'en-US', 'es' => 'es-MX'];
         $target  = $langMap[$locale] ?? 'en-US';
 
-        // Collect all unique raw genres from DB (pt-BR stored values)
-        $rawGenres = array_values(array_unique(array_filter(
-            Movie::whereNotNull('genres')->get()
-                ->merge(Serie::whereNotNull('genres')->get())
-                ->flatMap(fn($item) => (array) ($item->genres ?? []))
-                ->toArray()
-        )));
+        // Collect all unique raw genres — use array_merge to avoid Eloquent Collection
+        // merge-by-primary-key which drops items with duplicate IDs across models
+        $rawGenres = array_values(array_unique(array_filter(array_merge(
+            Movie::whereNotNull('genres')->get()->flatMap(fn($m) => $m->genres ?? [])->all(),
+            Serie::whereNotNull('genres')->get()->flatMap(fn($s) => $s->genres ?? [])->all()
+        ))));
 
         if (empty($rawGenres)) return [];
 
