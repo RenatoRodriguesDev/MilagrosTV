@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Episode;
 use App\Models\Movie;
 use App\Models\Serie;
 use App\Models\WatchedItem;
@@ -10,6 +9,8 @@ use App\Models\WatchProgress;
 use App\Models\Watchlist;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Http;
 
 class CatalogController extends Controller
 {
@@ -240,24 +241,45 @@ class CatalogController extends Controller
     // Returns ['raw_genre' => 'Localized Genre', ...] — value for filter, label for display
     private function getAllGenres(): array
     {
-        $locale = app()->getLocale();
-        $map    = [];
+        $locale   = app()->getLocale();
+        $langMap  = ['pt' => 'pt-BR', 'en' => 'en-US', 'es' => 'es-MX'];
+        $tmdbLang = $langMap[$locale] ?? 'en-US';
 
-        Movie::whereNotNull('genres')->get()
+        // Translation map: raw pt-BR genre name → localized name (cached 24h)
+        $translationMap = Cache::remember("genres.tmdb.{$locale}", 86400, function () use ($tmdbLang) {
+            $key    = config('services.tmdb.key');
+            $ptMap  = []; // id → pt-BR name (raw stored value)
+            $loMap  = []; // id → localized name
+
+            foreach (['movie', 'tv'] as $type) {
+                try {
+                    $pt = Http::timeout(8)->get("https://api.themoviedb.org/3/genre/{$type}/list", ['api_key' => $key, 'language' => 'pt-BR'])->json()['genres'] ?? [];
+                    $lo = Http::timeout(8)->get("https://api.themoviedb.org/3/genre/{$type}/list", ['api_key' => $key, 'language' => $tmdbLang])->json()['genres'] ?? [];
+                    foreach ($pt as $g) $ptMap[$g['id']] = $g['name'];
+                    foreach ($lo as $g) $loMap[$g['id']] = $g['name'];
+                } catch (\Throwable) {}
+            }
+
+            $map = [];
+            foreach ($ptMap as $id => $rawName) {
+                $map[$rawName] = $loMap[$id] ?? $rawName;
+            }
+            return $map;
+        });
+
+        // Collect raw genres from DB and translate
+        $rawGenres = Movie::whereNotNull('genres')->get()
             ->merge(Serie::whereNotNull('genres')->get())
-            ->each(function ($item) use (&$map, $locale) {
-                $raw       = $item->genres ?? [];
-                $localized = $item->translations[$locale]['genres'] ?? $raw;
-                foreach ($raw as $i => $rawGenre) {
-                    if ($rawGenre && !isset($map[$rawGenre])) {
-                        $map[$rawGenre] = $localized[$i] ?? $rawGenre;
-                    }
-                }
-            });
+            ->flatMap(fn($item) => $item->genres ?? [])
+            ->filter()->unique()->values();
 
-        // Sort by localized label
-        asort($map);
-        return $map;
+        $result = [];
+        foreach ($rawGenres as $raw) {
+            $result[$raw] = $translationMap[$raw] ?? $raw;
+        }
+
+        asort($result);
+        return $result;
     }
 
     private function applySortEloquent($query, string $sort, string $order)
