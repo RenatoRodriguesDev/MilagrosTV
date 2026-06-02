@@ -142,6 +142,7 @@ class ScraperController extends Controller
         $candidates = [];
         foreach ($slugs as $s) {
             $candidates[] = "https://piratahub.to/{$s}-temporada-{$season}/capitulo-{$episode}/";
+            $candidates[] = "https://piratahub.to/{$s}-{$season}/capitulo-{$episode}/";
             if ($season === 1) {
                 $candidates[] = "https://piratahub.to/{$s}/capitulo-{$episode}/";
             }
