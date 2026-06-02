@@ -79,5 +79,12 @@
     "plyr.fullscreen_enter": "Fullscreen",
     "plyr.fullscreen_exit": "Exit",
     "plyr.speed": "Speed",
-    "plyr.normal": "Normal"
+    "plyr.normal": "Normal",
+    "catalog.request_content": "Request content",
+    "catalog.request_title": "Request content",
+    "catalog.request_placeholder": "Movie or series name...",
+    "catalog.request_search": "Search",
+    "catalog.request_not_found": "No results.",
+    "catalog.request_searching": "Searching...",
+    "catalog.request_send": "Request"
 }

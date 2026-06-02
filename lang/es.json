@@ -79,5 +79,12 @@
     "plyr.fullscreen_enter": "Pantalla completa",
     "plyr.fullscreen_exit": "Salir",
     "plyr.speed": "Velocidad",
-    "plyr.normal": "Normal"
+    "plyr.normal": "Normal",
+    "catalog.request_content": "Solicitar contenido",
+    "catalog.request_title": "Solicitar contenido",
+    "catalog.request_placeholder": "Nombre de película o serie...",
+    "catalog.request_search": "Buscar",
+    "catalog.request_not_found": "Sin resultados.",
+    "catalog.request_searching": "Buscando...",
+    "catalog.request_send": "Solicitar"
 }

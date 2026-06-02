@@ -255,24 +255,24 @@
 <button onclick="document.getElementById('request-modal').classList.remove('hidden')"
     class="fixed bottom-20 sm:bottom-6 right-4 sm:right-6 z-50 flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-3 rounded-full shadow-lg shadow-red-900/40 font-semibold transition-all hover:scale-105 active:scale-95">
     <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-    Pedir conteúdo
+    {{ __('catalog.request_content') }}
 </button>
 
 {{-- Request modal --}}
 <div id="request-modal" class="hidden fixed inset-0 z-[9999] flex items-end sm:items-start sm:justify-center sm:pt-20" style="background:rgba(0,0,0,0.75);">
     <div class="w-full sm:max-w-lg bg-[#111] border border-white/10 sm:rounded-2xl rounded-t-2xl shadow-2xl overflow-hidden">
         <div class="flex items-center justify-between px-4 py-3 border-b border-white/[.08]">
-            <h2 class="font-bold text-white text-sm">📬 Pedir conteúdo</h2>
+            <h2 class="font-bold text-white text-sm">📬 {{ __('catalog.request_title') }}</h2>
             <button onclick="closeRequestModal()" class="text-gray-500 hover:text-white transition p-1">✕</button>
         </div>
         <div class="p-4">
             <div class="flex flex-col gap-2 mb-4">
-                <input id="req-query" type="text" placeholder="Nome do filme ou série..."
+                <input id="req-query" type="text" placeholder="{{ __('catalog.request_placeholder') }}"
                     class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-red-500 placeholder-gray-500"
                     oninput="reqDebounce()" onkeydown="if(event.key==='Enter') searchRequest()">
                 <button onclick="searchRequest()"
                     class="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-lg text-sm font-semibold transition">
-                    Pesquisar
+                    {{ __('catalog.request_search') }}
                 </button>
             </div>
             <div id="req-results" class="space-y-2 max-h-64 overflow-y-auto"></div>
@@ -388,13 +388,16 @@ document.getElementById('request-modal')?.addEventListener('click', function(e) 
     if (e.target === this) closeRequestModal();
 });
 
-const TMDB_IMG = 'https://image.tmdb.org/t/p/w92';
+const TMDB_IMG       = 'https://image.tmdb.org/t/p/w92';
+const REQ_SEARCHING  = '{{ __('catalog.request_searching') }}';
+const REQ_NOT_FOUND  = '{{ __('catalog.request_not_found') }}';
+const REQ_SEND_LABEL = '{{ __('catalog.request_send') }}';
 
 async function searchRequest() {
     const q = document.getElementById('req-query').value.trim();
     if (!q) return;
     const res = document.getElementById('req-results');
-    res.innerHTML = '<p class="text-gray-500 text-xs text-center py-4">A pesquisar...</p>';
+    res.innerHTML = `<p class="text-gray-500 text-xs text-center py-4">${REQ_SEARCHING}</p>`;
 
     const [movies, series] = await Promise.all([
         fetch(`/admin/movies/tmdb-search?query=${encodeURIComponent(q)}`).then(r => r.json()).catch(() => []),
@@ -417,7 +420,7 @@ async function searchRequest() {
         ...series.map(s => normalise(s, 'tv')),
     ].sort((a, b) => b.popularity - a.popularity).slice(0, 8);
 
-    if (!items.length) { res.innerHTML = '<p class="text-gray-500 text-xs text-center py-4">Sem resultados.</p>'; return; }
+    if (!items.length) { res.innerHTML = `<p class="text-gray-500 text-xs text-center py-4">${REQ_NOT_FOUND}</p>`; return; }
 
     res.innerHTML = items.map((item, i) => `
         <div class="flex items-center gap-3 bg-gray-800/60 hover:bg-gray-800 rounded-xl px-3 py-2.5 transition">
@@ -430,7 +433,7 @@ async function searchRequest() {
             </div>
             <button onclick="submitRequest(reqItems[${i}])"
                 class="flex-shrink-0 text-xs bg-white/10 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg font-semibold transition">
-                Pedir
+                ${REQ_SEND_LABEL}
             </button>
         </div>
     `).join('');
