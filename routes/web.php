@@ -11,6 +11,8 @@ use App\Http\Controllers\VideoController;
 use App\Http\Controllers\WatchlistController;
 use App\Http\Controllers\WatchProgressController;
 use App\Http\Controllers\Admin\AuthController;
+use App\Http\Controllers\Admin\ContentRequestAdminController;
+use App\Http\Controllers\ContentRequestController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DiscoverController;
 use App\Http\Controllers\Admin\EpisodeController;
@@ -59,6 +61,9 @@ Route::middleware('auth')->group(function () {
     Route::post('/progress/{episode}', [WatchProgressController::class, 'store'])->name('progress.store');
     Route::delete('/progress/{episode}/dismiss', [WatchProgressController::class, 'destroy'])->name('progress.dismiss');
 
+    // Content requests
+    Route::post('/content-requests', [ContentRequestController::class, 'store'])->name('content-requests.store');
+
     // Scraper (extract player from external sites)
     Route::get('/scrape', [\App\Http\Controllers\ScraperController::class, 'extract'])->name('scrape.extract');
     Route::get('/scrape/find', [\App\Http\Controllers\ScraperController::class, 'find'])->name('scrape.find');
@@ -95,7 +100,13 @@ Route::prefix('admin')->name('admin.')->middleware(\App\Http\Middleware\AdminAut
 
     Route::get('/', [DashboardController::class, 'index'])->name('dashboard');
 
+    // Content requests
+    Route::get('/content-requests', [ContentRequestAdminController::class, 'index'])->name('content-requests.index');
+    Route::post('/content-requests/{contentRequest}/import', [ContentRequestAdminController::class, 'import'])->name('content-requests.import');
+    Route::post('/content-requests/{contentRequest}/reject', [ContentRequestAdminController::class, 'reject'])->name('content-requests.reject');
+
     // Utilizadores
+
     Route::get('/users', [UserController::class, 'index'])->name('users.index');
     Route::get('/users/{user}/activity', [UserController::class, 'activity'])->name('users.activity');
     Route::post('/users/{user}/toggle-admin', [UserController::class, 'toggleAdmin'])->name('users.toggle-admin');

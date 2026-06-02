@@ -55,25 +55,10 @@
 <div class="pt-20"></div>
 @endif
 
-{{-- Filter bar — sempre visível para pesquisar, mas compacto no modo carrossel --}}
+{{-- Filter bar — só no modo grelha --}}
+@if(empty($carousels))
 <div class="sticky top-14 z-40 bg-[#0a0a0a]/95 backdrop-blur border-b border-white/5 px-4 py-3">
     <div class="max-w-7xl mx-auto">
-        @if(!empty($carousels))
-        {{-- Modo carrossel: só pesquisa (compacto) --}}
-        <form method="GET" action="{{ route('catalog.index') }}" class="flex gap-2 items-center">
-            <div class="relative flex-1 max-w-sm">
-                <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs">🔍</span>
-                <input type="text" name="search" value="{{ $search }}"
-                    placeholder="{{ __('catalog.search_placeholder') }}"
-                    class="search-input bg-white/5 border border-white/10 text-white rounded-lg pl-8 pr-3 py-2 text-sm w-full focus:outline-none focus:border-red-500/50 transition placeholder-gray-500">
-            </div>
-            <div class="flex rounded-lg overflow-hidden border border-white/10 text-sm flex-shrink-0">
-                <a href="{{ request()->fullUrlWithQuery(['type' => 'movies']) }}" class="px-3 py-2 font-medium transition bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white">{{ __('catalog.movies') }}</a>
-                <a href="{{ request()->fullUrlWithQuery(['type' => 'series']) }}" class="px-3 py-2 font-medium transition bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white">{{ __('catalog.series') }}</a>
-            </div>
-        </form>
-        @else
-        {{-- Modo grelha: filtros completos --}}
         <form method="GET" action="{{ route('catalog.index') }}" class="flex flex-wrap gap-2 items-center">
             <div class="relative w-full sm:w-52">
                 <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-xs">🔍</span>
@@ -110,9 +95,9 @@
             <a href="{{ route('catalog.index', ['type' => $type]) }}" class="text-gray-500 hover:text-white text-sm transition">✕ {{ __('catalog.clear') }}</a>
             @endif
         </form>
-        @endif
     </div>
 </div>
+@endif
 
 {{-- Content --}}
 <div class="max-w-7xl mx-auto px-4 sm:px-6 py-8 pb-16">
@@ -266,6 +251,36 @@
 
 </div>
 
+{{-- Floating request button --}}
+<button onclick="document.getElementById('request-modal').classList.remove('hidden')"
+    class="fixed bottom-20 sm:bottom-6 right-4 sm:right-6 z-50 flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-sm px-4 py-3 rounded-full shadow-lg shadow-red-900/40 font-semibold transition-all hover:scale-105 active:scale-95">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+    Pedir conteúdo
+</button>
+
+{{-- Request modal --}}
+<div id="request-modal" class="hidden fixed inset-0 z-[9999] flex items-end sm:items-start sm:justify-center sm:pt-20" style="background:rgba(0,0,0,0.75);">
+    <div class="w-full sm:max-w-lg bg-[#111] border border-white/10 sm:rounded-2xl rounded-t-2xl shadow-2xl overflow-hidden">
+        <div class="flex items-center justify-between px-4 py-3 border-b border-white/[.08]">
+            <h2 class="font-bold text-white text-sm">📬 Pedir conteúdo</h2>
+            <button onclick="closeRequestModal()" class="text-gray-500 hover:text-white transition p-1">✕</button>
+        </div>
+        <div class="p-4">
+            <div class="flex flex-col gap-2 mb-4">
+                <input id="req-query" type="text" placeholder="Nome do filme ou série..."
+                    class="w-full bg-gray-800 border border-gray-700 rounded-lg px-3 py-2.5 text-white text-sm focus:outline-none focus:border-red-500 placeholder-gray-500"
+                    oninput="reqDebounce()" onkeydown="if(event.key==='Enter') searchRequest()">
+                <button onclick="searchRequest()"
+                    class="w-full bg-red-600 hover:bg-red-700 text-white py-2.5 rounded-lg text-sm font-semibold transition">
+                    Pesquisar
+                </button>
+            </div>
+            <div id="req-results" class="space-y-2 max-h-64 overflow-y-auto"></div>
+            <p id="req-msg" class="text-sm text-center mt-3 hidden"></p>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @push('scripts')
@@ -356,6 +371,94 @@ async function dismissProgress(episodeId) {
     }).catch(() => {});
     const card = document.getElementById(`cw-${episodeId}`);
     if (card) card.remove();
+}
+</script>
+<script>
+// ── Content request widget ────────────────────────────────────────────────────
+let reqTimer = null;
+function reqDebounce() { clearTimeout(reqTimer); reqTimer = setTimeout(searchRequest, 500); }
+
+function closeRequestModal() {
+    document.getElementById('request-modal').classList.add('hidden');
+    document.getElementById('req-results').innerHTML = '';
+    document.getElementById('req-query').value = '';
+    document.getElementById('req-msg').classList.add('hidden');
+}
+document.getElementById('request-modal')?.addEventListener('click', function(e) {
+    if (e.target === this) closeRequestModal();
+});
+
+const TMDB_IMG = 'https://image.tmdb.org/t/p/w92';
+
+async function searchRequest() {
+    const q = document.getElementById('req-query').value.trim();
+    if (!q) return;
+    const res = document.getElementById('req-results');
+    res.innerHTML = '<p class="text-gray-500 text-xs text-center py-4">A pesquisar...</p>';
+
+    const [movies, series] = await Promise.all([
+        fetch(`/admin/movies/tmdb-search?query=${encodeURIComponent(q)}`).then(r => r.json()).catch(() => []),
+        fetch(`/admin/series/tmdb-search?query=${encodeURIComponent(q)}`).then(r => r.json()).catch(() => []),
+    ]);
+
+    // Normalise raw TMDB fields
+    const normalise = (item, type) => ({
+        tmdb_id:        item.id,
+        type,
+        title:          item.title || item.name || '',
+        original_title: item.original_title || item.original_name || null,
+        poster_url:     item.poster_path ? TMDB_IMG + item.poster_path : null,
+        year:           (item.release_date || item.first_air_date || '').substring(0, 4) || null,
+        popularity:     item.popularity || 0,
+    });
+
+    const items = [
+        ...movies.map(m => normalise(m, 'movie')),
+        ...series.map(s => normalise(s, 'tv')),
+    ].sort((a, b) => b.popularity - a.popularity).slice(0, 8);
+
+    if (!items.length) { res.innerHTML = '<p class="text-gray-500 text-xs text-center py-4">Sem resultados.</p>'; return; }
+
+    res.innerHTML = items.map((item, i) => `
+        <div class="flex items-center gap-3 bg-gray-800/60 hover:bg-gray-800 rounded-xl px-3 py-2.5 transition">
+            ${item.poster_url
+                ? `<img src="${item.poster_url}" class="w-10 h-14 object-cover rounded flex-shrink-0" loading="lazy">`
+                : '<div class="w-10 h-14 bg-gray-700 rounded flex-shrink-0 flex items-center justify-center text-gray-600 text-lg">🎬</div>'}
+            <div class="flex-1 min-w-0">
+                <p class="text-sm font-semibold text-white truncate">${item.title}</p>
+                <p class="text-xs text-gray-500">${item.type === 'movie' ? 'Filme' : 'Série'}${item.year ? ' · ' + item.year : ''}</p>
+            </div>
+            <button onclick="submitRequest(reqItems[${i}])"
+                class="flex-shrink-0 text-xs bg-white/10 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg font-semibold transition">
+                Pedir
+            </button>
+        </div>
+    `).join('');
+
+    window.reqItems = items;
+}
+
+async function submitRequest(item) {
+    const msg = document.getElementById('req-msg');
+    msg.className = 'text-sm text-center mt-3 text-gray-400';
+    msg.textContent = 'A enviar...';
+    msg.classList.remove('hidden');
+
+    const res = await fetch('{{ route("content-requests.store") }}', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
+        body: JSON.stringify({
+            tmdb_id:        String(item.tmdb_id),
+            type:           item.type,
+            title:          item.title,
+            original_title: item.original_title || null,
+            poster_url:     item.poster_url || null,
+            year:           item.year ? parseInt(item.year) : null,
+        }),
+    });
+    const data = await res.json();
+    msg.textContent = data.message;
+    msg.className = 'text-sm text-center mt-3 ' + (data.ok ? 'text-green-400' : 'text-yellow-400');
 }
 </script>
 @endpush

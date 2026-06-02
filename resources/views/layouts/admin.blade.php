@@ -64,6 +64,15 @@
                 <span class="nav-badge">{{ \App\Models\Serie::count() }}</span>
             </a>
 
+            @php $pendingRequests = \App\Models\ContentRequest::where('status','pending')->count(); @endphp
+            <a href="{{ route('admin.content-requests.index') }}" onclick="closeSidebar()" class="nav-link {{ request()->routeIs('admin.content-requests.*') ? 'active' : '' }}">
+                <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+                Pedidos
+                @if($pendingRequests > 0)
+                <span class="nav-badge" style="background:#dc2626;color:#fff;">{{ $pendingRequests }}</span>
+                @endif
+            </a>
+
             <p class="text-[10px] text-gray-600 font-semibold uppercase tracking-widest px-3 pt-4 pb-1.5">Pessoas</p>
             <a href="{{ route('admin.users.index') }}" onclick="closeSidebar()" class="nav-link {{ request()->routeIs('admin.users.*') ? 'active' : '' }}">
                 <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
