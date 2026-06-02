@@ -100,7 +100,7 @@ class ScraperController extends Controller
             }
         }
 
-        $response = ['error' => 'Filme não encontrado no piratahub.to'];
+        $response = ['error' => 'Filme não encontrado'];
         if ($debug) $response['debug'] = $log;
         return response()->json($response, 404);
     }
@@ -160,7 +160,7 @@ class ScraperController extends Controller
             }
         }
 
-        return response()->json(['error' => 'Episódio não encontrado no piratahub.to', 'slug' => $slug, 'season' => $season, 'episode' => $episode], 404);
+        return response()->json(['error' => 'Episódio não encontrado', 'slug' => $slug, 'season' => $season, 'episode' => $episode], 404);
     }
 
     // Scrape a known URL directly
