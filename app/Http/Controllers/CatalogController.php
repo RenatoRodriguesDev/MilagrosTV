@@ -9,7 +9,6 @@ use App\Models\WatchProgress;
 use App\Models\Watchlist;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 
 class CatalogController extends Controller
@@ -263,37 +262,26 @@ class CatalogController extends Controller
         }
 
         // Build translation map via TMDB genre endpoint (cached 24h per locale)
-        $cacheKey = "genres_map_{$locale}";
-        $map = Cache::remember($cacheKey, 86400, function () use ($target) {
-            $key   = config('services.tmdb.key');
-            $ptMap = [];
-            $loMap = [];
-            foreach (['movie', 'tv'] as $type) {
-                try {
-                    $ptList = Http::timeout(8)->get("https://api.themoviedb.org/3/genre/{$type}/list", ['api_key' => $key, 'language' => 'pt-BR'])->json()['genres'] ?? [];
-                    $loList = Http::timeout(8)->get("https://api.themoviedb.org/3/genre/{$type}/list", ['api_key' => $key, 'language' => $target])->json()['genres'] ?? [];
-                    foreach ($ptList as $g) $ptMap[(int) $g['id']] = $g['name'];
-                    foreach ($loList as $g) $loMap[(int) $g['id']] = $g['name'];
-                } catch (\Throwable) {}
-            }
-            $result = [];
-            foreach ($ptMap as $id => $ptName) {
-                $result[$ptName] = $loMap[$id] ?? $ptName;
-            }
-            return $result ?: null; // return null on failure so cache misses next time
-        });
+        $tmdbKey = config('services.tmdb.key');
+        $ptMap   = [];
+        $loMap   = [];
 
-        if (!$map) {
-            // Translation failed — show raw genres
-            $result = array_combine($rawGenres, $rawGenres);
-            asort($result);
-            return $result;
+        foreach (['movie', 'tv'] as $type) {
+            try {
+                $ptList = Http::timeout(8)->get("https://api.themoviedb.org/3/genre/{$type}/list", ['api_key' => $tmdbKey, 'language' => 'pt-BR'])->json()['genres'] ?? [];
+                $loList = Http::timeout(8)->get("https://api.themoviedb.org/3/genre/{$type}/list", ['api_key' => $tmdbKey, 'language' => $target])->json()['genres'] ?? [];
+                foreach ($ptList as $g) $ptMap[(int) $g['id']] = (string) $g['name'];
+                foreach ($loList as $g) $loMap[(int) $g['id']] = (string) $g['name'];
+            } catch (\Throwable) {}
         }
 
         $result = [];
         foreach ($rawGenres as $raw) {
-            $result[$raw] = $map[$raw] ?? $raw;
+            // Find the ID for this pt-BR genre name, then look up the localized name
+            $id = array_search($raw, $ptMap, true);
+            $result[$raw] = ($id !== false && isset($loMap[$id])) ? $loMap[$id] : $raw;
         }
+
         asort($result);
         return $result;
     }
