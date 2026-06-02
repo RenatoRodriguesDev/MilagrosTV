@@ -176,7 +176,7 @@ class CatalogController extends Controller
                 ->limit(30)
                 ->get()
                 ->each(function ($p) use (&$watchedGenres) {
-                    foreach ($p->episode?->serie?->localGenres() ?? [] as $g) {
+                    foreach ($p->episode?->serie?->genres ?? [] as $g) {
                         $watchedGenres[$g] = ($watchedGenres[$g] ?? 0) + 1;
                     }
                 });
@@ -239,9 +239,11 @@ class CatalogController extends Controller
 
     private function getAllGenres(): array
     {
+        // Use raw genres column (not translated) so the dropdown value matches
+        // what whereJsonContains searches — avoids locale mismatch
         return Movie::whereNotNull('genres')->get()
             ->merge(Serie::whereNotNull('genres')->get())
-            ->flatMap(fn($item) => $item->localGenres())
+            ->flatMap(fn($item) => $item->genres ?? [])
             ->filter()->unique()->sort()->values()->toArray();
     }
 
