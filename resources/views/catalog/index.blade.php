@@ -142,7 +142,7 @@
                     <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent flex flex-col justify-end p-3">
                         <p class="text-white text-xs font-semibold truncate">{{ $serie->localTitle() }}</p>
                         <p class="text-gray-400 text-[10px]">T{{ $ep->season }}E{{ $ep->episode }}{{ $ep->title ? ' · '.Str::limit($ep->title, 20) : '' }}</p>
-                        <p class="text-red-400 text-[10px] font-medium mt-0.5">{{ gmdate($prog->position >= 3600 ? 'H:i:s' : 'i:s', $prog->position) }} restantes</p>
+                        <p class="text-red-400 text-[10px] font-medium mt-0.5">{{ gmdate($prog->position >= 3600 ? 'H:i:s' : 'i:s', $prog->position) }} {{ __('player.remaining') }}</p>
                     </div>
                     <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
                         <div class="w-12 h-12 rounded-full bg-red-600/90 flex items-center justify-center">

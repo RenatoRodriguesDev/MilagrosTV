@@ -64,6 +64,7 @@
     "catalog.continue_watching": "Continue watching",
     "catalog.my_list": "My list",
     "player.continue": "Continue",
+    "player.remaining": "remaining",
     "player.resuming_from": "Resuming from",
     "episode.mark_watched": "Mark as watched",
     "episode.mark_unwatched": "Remove watched",
