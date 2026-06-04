@@ -191,7 +191,18 @@
                     <button class="swiper-next-{{ $ci }} w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition text-lg disabled:opacity-30">›</button>
                 </div>
             </div>
-            <div class="swiper swiper-carousel-{{ $ci }}">
+            {{-- Grid overlay: skeleton + swiper share same cell, no layout shift --}}
+            <div style="display:grid">
+            <div id="skeleton-{{ $ci }}" class="flex gap-3 overflow-hidden" style="grid-area:1/1" aria-hidden="true">
+                @for($s = 0; $s < 7; $s++)
+                <div class="flex-shrink-0 w-[calc(100%/2.3)] sm:w-[calc(100%/3.3)] md:w-[calc(100%/4.3)] lg:w-[calc(100%/5.3)] xl:w-[calc(100%/6.3)]">
+                    <div class="aspect-[2/3] rounded-xl bg-white/[.06] animate-pulse"></div>
+                    <div class="h-2.5 rounded bg-white/[.06] animate-pulse mt-2 w-3/4"></div>
+                    <div class="h-2 rounded bg-white/[.06] animate-pulse mt-1.5 w-1/2"></div>
+                </div>
+                @endfor
+            </div>
+            <div class="swiper swiper-carousel-{{ $ci }}" style="grid-area:1/1;opacity:0">
                 <div class="swiper-wrapper">
                     @foreach($carousel['items'] as $item)
                     @php
@@ -204,6 +215,7 @@
                     @endforeach
                 </div>
             </div>
+            </div>{{-- /grid overlay --}}
         </section>
         @endforeach
 
@@ -313,6 +325,14 @@ new Swiper('.swiper-carousel-{{ $ci }}', {
         768:  { slidesPerView: 4.3, spaceBetween: 14 },
         1024: { slidesPerView: 5.3, spaceBetween: 16 },
         1280: { slidesPerView: 6.3, spaceBetween: 16 },
+    },
+    on: {
+        init(swiper) {
+            // Remove skeleton, fade in real content
+            document.getElementById('skeleton-{{ $ci }}')?.remove();
+            swiper.el.style.transition = 'opacity 0.2s ease';
+            swiper.el.style.opacity    = '1';
+        },
     },
 });
 @endforeach
