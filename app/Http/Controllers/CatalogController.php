@@ -202,23 +202,30 @@ class CatalogController extends Controller
         return $carousels;
     }
 
-    private function getSimilarContent(array $genres, int $excludeId, string $excludeType, int $limit = 12): \Illuminate\Support\Collection
+    private function getSimilarContent(array $genres, int $excludeId, string $excludeType, int $show = 12): \Illuminate\Support\Collection
     {
         if (empty($genres)) return collect();
 
-        // Pick the first genre to find similar content
-        $genre = $genres[0];
+        $pool = collect();
 
-        $movies = Movie::whereJsonContains('genres', $genre)
-            ->when($excludeType === 'movie', fn($q) => $q->where('id', '!=', $excludeId))
-            ->orderByDesc('rating')->limit($limit)->get();
+        // Search across all genres for a wider variety
+        foreach (array_slice($genres, 0, 3) as $genre) {
+            $movies = Movie::whereJsonContains('genres', $genre)
+                ->when($excludeType === 'movie', fn($q) => $q->where('id', '!=', $excludeId))
+                ->orderByDesc('rating')->limit(20)->get();
 
-        $series = Serie::whereJsonContains('genres', $genre)
-            ->when($excludeType === 'serie', fn($q) => $q->where('id', '!=', $excludeId))
-            ->orderByDesc('rating')->limit($limit)->get();
+            $series = Serie::whereJsonContains('genres', $genre)
+                ->when($excludeType === 'serie', fn($q) => $q->where('id', '!=', $excludeId))
+                ->orderByDesc('rating')->limit(20)->get();
 
-        return collect($movies->all())->concat($series->all())
-            ->sortByDesc('rating')->take($limit)->values();
+            $pool = $pool->concat($movies->all())->concat($series->all());
+        }
+
+        // Deduplicate by class+id, then shuffle for variety on each refresh
+        return $pool->unique(fn($item) => get_class($item) . $item->id)
+            ->shuffle()
+            ->take($show)
+            ->values();
     }
 
     private function getItemsByGenre(string $genre, int $limit): \Illuminate\Support\Collection
