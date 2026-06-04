@@ -97,7 +97,9 @@ class CatalogController extends Controller
             'item_id'   => $serie->id,
         ])->exists();
 
-        return view('catalog.serie', compact('serie', 'episodes', 'progress', 'inWatchlist'));
+        $similar = $this->getSimilarContent($serie->genres ?? [], $serie->id, 'serie');
+
+        return view('catalog.serie', compact('serie', 'episodes', 'progress', 'inWatchlist', 'similar'));
     }
 
     public function movie(Movie $movie)
@@ -108,7 +110,9 @@ class CatalogController extends Controller
             'item_id'   => $movie->id,
         ])->exists();
 
-        return view('catalog.movie', compact('movie', 'inWatchlist'));
+        $similar = $this->getSimilarContent($movie->genres ?? [], $movie->id, 'movie');
+
+        return view('catalog.movie', compact('movie', 'inWatchlist', 'similar'));
     }
 
     public function toggleWatched(Request $request)
@@ -198,6 +202,25 @@ class CatalogController extends Controller
         return $carousels;
     }
 
+    private function getSimilarContent(array $genres, int $excludeId, string $excludeType, int $limit = 12): \Illuminate\Support\Collection
+    {
+        if (empty($genres)) return collect();
+
+        // Pick the first genre to find similar content
+        $genre = $genres[0];
+
+        $movies = Movie::whereJsonContains('genres', $genre)
+            ->when($excludeType === 'movie', fn($q) => $q->where('id', '!=', $excludeId))
+            ->orderByDesc('rating')->limit($limit)->get();
+
+        $series = Serie::whereJsonContains('genres', $genre)
+            ->when($excludeType === 'serie', fn($q) => $q->where('id', '!=', $excludeId))
+            ->orderByDesc('rating')->limit($limit)->get();
+
+        return collect($movies->all())->concat($series->all())
+            ->sortByDesc('rating')->take($limit)->values();
+    }
+
     private function getItemsByGenre(string $genre, int $limit): \Illuminate\Support\Collection
     {
         return collect(Movie::whereJsonContains('genres', $genre)->orderByDesc('rating')->limit($limit)->get()->all())
@@ -208,7 +231,7 @@ class CatalogController extends Controller
 
     private function getContinueWatching(): \Illuminate\Support\Collection
     {
-        return WatchProgress::with(['episode.serie'])
+        $episodes = WatchProgress::with(['episode.serie'])
             ->where('user_id', Auth::id())
             ->where('completed', false)
             ->where('position', '>', 30)
@@ -216,7 +239,43 @@ class CatalogController extends Controller
             ->latest('updated_at')
             ->limit(10)
             ->get()
-            ->filter(fn($p) => $p->episode && $p->episode->serie);
+            ->filter(fn($p) => $p->episode && $p->episode->serie)
+            ->map(fn($p) => (object)[
+                'type'       => 'episode',
+                'key'        => 'ep-' . $p->episode_id,
+                'dismiss_id' => $p->episode_id,
+                'title'      => $p->episode->serie->localTitle(),
+                'subtitle'   => 'T' . $p->episode->season . 'E' . $p->episode->episode . ($p->episode->title ? ' · ' . \Illuminate\Support\Str::limit($p->episode->title, 20) : ''),
+                'poster'     => $p->episode->serie->localPosterUrl(),
+                'link'       => route('catalog.serie', $p->episode->serie),
+                'percent'    => $p->percent,
+                'remaining'  => max(0, $p->duration - $p->position),
+                'updated_at' => $p->updated_at,
+            ]);
+
+        $movies = \App\Models\MovieWatchProgress::with('movie')
+            ->where('user_id', Auth::id())
+            ->where('completed', false)
+            ->where('position', '>', 30)
+            ->where('duration', '>', 0)
+            ->latest('updated_at')
+            ->limit(10)
+            ->get()
+            ->filter(fn($p) => $p->movie)
+            ->map(fn($p) => (object)[
+                'type'       => 'movie',
+                'key'        => 'mv-' . $p->movie_id,
+                'dismiss_id' => $p->movie_id,
+                'title'      => $p->movie->localTitle(),
+                'subtitle'   => $p->movie->year,
+                'poster'     => $p->movie->localPosterUrl(),
+                'link'       => route('catalog.movie', $p->movie),
+                'percent'    => $p->percent,
+                'remaining'  => max(0, $p->duration - $p->position),
+                'updated_at' => $p->updated_at,
+            ]);
+
+        return $episodes->concat($movies)->sortByDesc('updated_at')->take(10)->values();
     }
 
     private function getWatchedIds(): array

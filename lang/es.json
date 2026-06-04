@@ -90,6 +90,7 @@
     "catalog.request_searching": "Buscando...",
     "catalog.request_send": "Solicitar",
     "catalog.request_available": "Disponible",
+    "catalog.similar": "También te puede gustar",
     "catalog.request_sent": "¡Solicitud enviada! El administrador la revisará.",
     "catalog.request_already_sent": "Ya solicitaste este contenido.",
 

@@ -90,6 +90,7 @@
     "catalog.request_searching": "Searching...",
     "catalog.request_send": "Request",
     "catalog.request_available": "Available",
+    "catalog.similar": "You might also like",
     "catalog.request_sent": "Request sent! The administrator will review it.",
     "catalog.request_already_sent": "You already requested this content.",
 

@@ -121,28 +121,28 @@
         </div>
         <div class="flex gap-4 overflow-x-auto pb-2 scrollbar-none">
             @foreach($continueWatching as $prog)
-            @php $ep = $prog->episode; $serie = $ep->serie; @endphp
             <div class="flex-shrink-0 w-44 group relative rounded-xl overflow-hidden bg-gray-800 border border-white/10 hover:border-red-500/50 transition"
-                 id="cw-{{ $prog->episode_id }}">
-                {{-- Remove button --}}
-                <button onclick="event.preventDefault(); dismissProgress({{ $prog->episode_id }})"
+                 id="cw-{{ $prog->key }}">
+                <button onclick="event.preventDefault(); dismissContinueWatching('{{ $prog->type }}', {{ $prog->dismiss_id }}, '{{ $prog->key }}')"
                     class="absolute top-2 right-2 z-10 w-6 h-6 rounded-full bg-black/70 text-white text-xs flex items-center justify-center transition hover:bg-red-600">✕</button>
 
-                <a href="{{ route('catalog.serie', $serie) }}" class="block">
-                    @if($serie->localPosterUrl())
-                    <img src="{{ $serie->localPosterUrl() }}" class="w-full h-64 object-cover">
+                <a href="{{ $prog->link }}" class="block">
+                    @if($prog->poster)
+                    <img src="{{ $prog->poster }}" class="w-full h-64 object-cover">
                     @else
-                    <div class="w-full h-64 bg-gray-700 flex items-center justify-center text-3xl">📺</div>
+                    <div class="w-full h-64 bg-gray-700 flex items-center justify-center text-3xl">
+                        {{ $prog->type === 'movie' ? '🎬' : '📺' }}
+                    </div>
                     @endif
-                    {{-- Progress bar --}}
                     <div class="absolute bottom-0 left-0 right-0 h-1 bg-black/60">
                         <div class="h-full bg-red-500" style="width: {{ $prog->percent }}%"></div>
                     </div>
-                    {{-- Overlay --}}
                     <div class="absolute inset-0 bg-gradient-to-t from-black/90 via-transparent to-transparent flex flex-col justify-end p-3">
-                        <p class="text-white text-xs font-semibold truncate">{{ $serie->localTitle() }}</p>
-                        <p class="text-gray-400 text-[10px]">T{{ $ep->season }}E{{ $ep->episode }}{{ $ep->title ? ' · '.Str::limit($ep->title, 20) : '' }}</p>
-                        <p class="text-red-400 text-[10px] font-medium mt-0.5">{{ gmdate($prog->position >= 3600 ? 'H:i:s' : 'i:s', $prog->position) }} {{ __('player.remaining') }}</p>
+                        <p class="text-white text-xs font-semibold truncate">{{ $prog->title }}</p>
+                        @if($prog->subtitle)
+                        <p class="text-gray-400 text-[10px]">{{ $prog->subtitle }}</p>
+                        @endif
+                        <p class="text-red-400 text-[10px] font-medium mt-0.5">{{ gmdate($prog->remaining >= 3600 ? 'H:i:s' : 'i:s', $prog->remaining) }} {{ __('player.remaining') }}</p>
                     </div>
                     <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
                         <div class="w-12 h-12 rounded-full bg-red-600/90 flex items-center justify-center">
@@ -374,13 +374,13 @@ function updateBtn(btn, watched) {
     }
 }
 
-async function dismissProgress(episodeId) {
-    await fetch(`/progress/${episodeId}/dismiss`, {
+async function dismissContinueWatching(type, id, key) {
+    const url = type === 'movie' ? `/progress/movie/${id}/dismiss` : `/progress/${id}/dismiss`;
+    await fetch(url, {
         method: 'DELETE',
         headers: { 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
     }).catch(() => {});
-    const card = document.getElementById(`cw-${episodeId}`);
-    if (card) card.remove();
+    document.getElementById(`cw-${key}`)?.remove();
 }
 </script>
 <script>

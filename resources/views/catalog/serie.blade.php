@@ -276,6 +276,38 @@ document.getElementById('trailer-modal')?.addEventListener('click', function(e) 
     @endif
 </div>
 
+{{-- Similar content --}}
+@if($similar->isNotEmpty())
+<div class="max-w-5xl mx-auto px-4 sm:px-6 pb-20 mt-4">
+    <h2 class="text-lg font-bold text-white mb-4">{{ __('catalog.similar') }}</h2>
+    <div class="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-3">
+        @foreach($similar as $item)
+        @php $isMovie = $item instanceof \App\Models\Movie; @endphp
+        <a href="{{ $isMovie ? route('catalog.movie', $item) : route('catalog.serie', $item) }}"
+           class="group block">
+            <div class="relative aspect-[2/3] rounded-xl overflow-hidden bg-gray-800 mb-1.5">
+                @if($item->localPosterUrl())
+                <img src="{{ $item->localPosterUrl() }}" alt="{{ $item->localTitle() }}"
+                     class="w-full h-full object-cover group-hover:scale-105 transition duration-300" loading="lazy">
+                @else
+                <div class="w-full h-full flex items-center justify-center text-2xl text-gray-600">
+                    {{ $isMovie ? '🎬' : '📺' }}
+                </div>
+                @endif
+                @if($item->rating)
+                <div class="absolute top-1.5 left-1.5 bg-black/70 text-yellow-400 text-[10px] font-bold px-1.5 py-0.5 rounded">
+                    ★ {{ number_format($item->rating, 1) }}
+                </div>
+                @endif
+            </div>
+            <p class="text-xs text-gray-300 font-medium truncate group-hover:text-white transition">{{ $item->localTitle() }}</p>
+            <p class="text-[10px] text-gray-600">{{ $item->year }}</p>
+        </a>
+        @endforeach
+    </div>
+</div>
+@endif
+
 @endsection
 
 @push('scripts')
