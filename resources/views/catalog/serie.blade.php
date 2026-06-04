@@ -428,9 +428,10 @@ function playOnline(season, episode, label, episodeId) {
 
     // Source definitions — user can switch in the modal header
     window._onlineSources = [
-        { label: 'Fonte 1', url: `https://vidsrc.to/embed/tv/${TMDB_ID}/${season}/${episode}` },
-        { label: 'Fonte 2', url: `https://multiembed.mov/?video_id=${TMDB_ID}&tmdb=1&s=${season}&e=${episode}` },
-        { label: 'Fonte 3', url: `https://nhdapi.com/embed/tv/${TMDB_ID}/${season}/${episode}?autonext=true&download=false` },
+        { label: 'Fonte 1', url: `https://vidlink.pro/tv/${TMDB_ID}/${season}/${episode}` },
+        { label: 'Fonte 2', url: `https://vidsrc.to/embed/tv/${TMDB_ID}/${season}/${episode}` },
+        { label: 'Fonte 3', url: `https://multiembed.mov/?video_id=${TMDB_ID}&tmdb=1&s=${season}&e=${episode}` },
+        { label: 'Fonte 4', url: `https://nhdapi.com/embed/tv/${TMDB_ID}/${season}/${episode}?autonext=true&download=false` },
     ];
     window._onlineSeason  = season;
     window._onlineEp      = episode;

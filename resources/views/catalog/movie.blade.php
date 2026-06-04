@@ -133,6 +133,7 @@
                     <button id="msrc-0" onclick="switchMovieSource(0)" class="text-[10px] px-2 py-0.5 rounded bg-red-600 text-white font-semibold">1</button>
                     <button id="msrc-1" onclick="switchMovieSource(1)" class="text-[10px] px-2 py-0.5 rounded bg-white/10 text-gray-400 hover:bg-white/20 font-semibold">2</button>
                     <button id="msrc-2" onclick="switchMovieSource(2)" class="text-[10px] px-2 py-0.5 rounded bg-white/10 text-gray-400 hover:bg-white/20 font-semibold">3</button>
+                    <button id="msrc-3" onclick="switchMovieSource(3)" class="text-[10px] px-2 py-0.5 rounded bg-white/10 text-gray-400 hover:bg-white/20 font-semibold">4</button>
                 </div>
             </div>
             <button onclick="closeOnlineModal()" class="text-gray-400 hover:text-white text-sm">✕ Fechar</button>
@@ -281,9 +282,10 @@ async function playMoviePiratahub() {
 // Online movie player
 const MOVIE_TMDB_ID = '{{ $movie->tmdb_id }}';
 const MOVIE_SOURCES = [
-    { label: 'Fonte 1', url: () => `https://vidsrc.to/embed/movie/${MOVIE_TMDB_ID}` },
-    { label: 'Fonte 2', url: () => `https://multiembed.mov/?video_id=${MOVIE_TMDB_ID}&tmdb=1` },
-    { label: 'Fonte 3', url: () => `https://nhdapi.com/embed/movie/${MOVIE_TMDB_ID}?download=false` },
+    { label: 'Fonte 1', url: () => `https://vidlink.pro/movie/${MOVIE_TMDB_ID}` },
+    { label: 'Fonte 2', url: () => `https://vidsrc.to/embed/movie/${MOVIE_TMDB_ID}` },
+    { label: 'Fonte 3', url: () => `https://multiembed.mov/?video_id=${MOVIE_TMDB_ID}&tmdb=1` },
+    { label: 'Fonte 4', url: () => `https://nhdapi.com/embed/movie/${MOVIE_TMDB_ID}?download=false` },
 ];
 
 @php $mId = $movie->id; @endphp
