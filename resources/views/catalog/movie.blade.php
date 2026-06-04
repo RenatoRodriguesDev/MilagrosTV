@@ -166,30 +166,69 @@
 @push('scripts')
 <script>
 @if($movie->video_path && $movie->hasVideo())
-// Local movie player
+// Local movie player with progress tracking
+const MOVIE_ID   = {{ $movie->id }};
+const MOVIE_CSRF = document.querySelector('meta[name="csrf-token"]')?.content || '';
 let moviePlyr = null;
+let movieProgressInterval = null;
 
-function playLocalMovie() {
+function saveMovieProgress(position, duration, completed) {
+    fetch(`/progress/movie/${MOVIE_ID}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': MOVIE_CSRF },
+        body: JSON.stringify({ position: Math.floor(position), duration: Math.floor(duration), completed }),
+        keepalive: true,
+    }).catch(() => {});
+}
+
+async function playLocalMovie() {
     const modal = document.getElementById('movie-player-modal');
     if (!moviePlyr) {
+        document.getElementById('movie-video-player').style.display = 'block';
         moviePlyr = new Plyr('#movie-video-player', {
             controls: ['play-large','play','rewind','fast-forward','progress','current-time','duration','mute','volume','settings','fullscreen'],
             settings: ['speed'],
             speed: { selected: 1, options: [0.75, 1, 1.25, 1.5, 2] },
             fullscreen: { enabled: true, fallback: true, iosNative: false },
         });
+        moviePlyr.on('ended', () => saveMovieProgress(moviePlyr.duration, moviePlyr.duration, true));
     }
+    // Fetch existing progress to resume
+    let resumePos = 0;
+    try {
+        const r = await fetch(`/progress/movie/${MOVIE_ID}`);
+        const p = await r.json();
+        if (p.position > 30 && !p.completed) resumePos = p.position;
+    } catch (_) {}
+
     moviePlyr.source = {
         type: 'video',
         sources: [{ src: '{{ route('video.movie', $movie) }}', type: 'video/mp4' }]
     };
-    moviePlyr.once('ready', () => moviePlyr.play());
+    moviePlyr.once('ready', () => {
+        if (resumePos > 0) {
+            moviePlyr.media.addEventListener('loadedmetadata', () => { moviePlyr.currentTime = resumePos; }, { once: true });
+        }
+        moviePlyr.play();
+        movieProgressInterval = setInterval(() => {
+            if (!moviePlyr.paused && moviePlyr.duration > 0) {
+                saveMovieProgress(moviePlyr.currentTime, moviePlyr.duration, false);
+            }
+        }, 15000);
+    });
     modal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
 }
 
 function closeMoviePlayer() {
-    if (moviePlyr) moviePlyr.pause();
+    if (moviePlyr) {
+        const pos = Math.floor(moviePlyr.currentTime || 0);
+        const dur = Math.floor(moviePlyr.duration || 0);
+        if (pos > 5) saveMovieProgress(pos, dur, false);
+        moviePlyr.pause();
+    }
+    clearInterval(movieProgressInterval);
+    movieProgressInterval = null;
     document.getElementById('movie-player-modal').classList.add('hidden');
     document.body.style.overflow = '';
 }
@@ -247,7 +286,13 @@ const MOVIE_SOURCES = [
     { label: 'Fonte 3', url: () => `https://nhdapi.com/embed/movie/${MOVIE_TMDB_ID}?download=false` },
 ];
 
+@php $mId = $movie->id; @endphp
+let _movieOnlineStart = null, _movieOnlineBase = 0;
+
 function playMovieOnline() {
+    _movieOnlineStart = Date.now();
+    _movieOnlineBase  = 0;
+    fetch(`/progress/movie/{{ $mId }}`).then(r => r.json()).then(p => { _movieOnlineBase = p.position || 0; }).catch(() => {});
     document.getElementById('online-modal').classList.remove('hidden');
     document.body.style.overflow = 'hidden';
     switchMovieSource(0);
@@ -262,6 +307,19 @@ function switchMovieSource(idx) {
 }
 
 function closeOnlineModal() {
+    if (_movieOnlineStart) {
+        const elapsed = Math.floor((Date.now() - _movieOnlineStart) / 1000);
+        if (elapsed > 10) {
+            const pos = Math.min(_movieOnlineBase + elapsed, 3600 * 4);
+            fetch(`/progress/movie/{{ $mId }}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
+                body: JSON.stringify({ position: pos, duration: 7200, completed: pos > 6800 }),
+                keepalive: true,
+            }).catch(() => {});
+        }
+        _movieOnlineStart = null;
+    }
     document.getElementById('online-modal').classList.add('hidden');
     document.getElementById('online-iframe').src = '';
     document.body.style.overflow = '';

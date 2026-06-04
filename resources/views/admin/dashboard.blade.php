@@ -46,7 +46,7 @@
     {{-- Top episodes --}}
     <div class="bg-gray-800/40 border border-white/[.08] rounded-2xl overflow-hidden">
         <div class="px-5 py-4 border-b border-white/[.08]">
-            <h2 class="font-semibold text-sm">Episódios mais vistos</h2>
+            <h2 class="font-semibold text-sm">📺 Episódios mais vistos</h2>
         </div>
         @if($topEpisodes->isEmpty())
             <p class="text-center text-gray-600 py-8 text-sm">Sem dados.</p>
@@ -59,6 +59,32 @@
                 <div class="flex-1 min-w-0">
                     <p class="text-sm truncate">{{ $ep?->serie?->title ?? '—' }}</p>
                     <p class="text-xs text-gray-500">T{{ $ep?->season }}E{{ $ep?->episode }}</p>
+                </div>
+                <span class="text-xs text-gray-400 flex-shrink-0">{{ $prog->views }}×</span>
+            </div>
+            @endforeach
+        </div>
+        @endif
+    </div>
+
+    {{-- Top movies --}}
+    <div class="bg-gray-800/40 border border-white/[.08] rounded-2xl overflow-hidden">
+        <div class="px-5 py-4 border-b border-white/[.08]">
+            <h2 class="font-semibold text-sm">🎬 Filmes mais vistos</h2>
+        </div>
+        @if($topMovies->isEmpty())
+            <p class="text-center text-gray-600 py-8 text-sm">Sem dados.</p>
+        @else
+        <div class="divide-y divide-white/[.05]">
+            @foreach($topMovies as $i => $prog)
+            <div class="flex items-center gap-3 px-5 py-3">
+                <span class="text-gray-600 text-xs font-bold w-4 flex-shrink-0">{{ $i+1 }}</span>
+                @if($prog->movie?->poster_url)
+                <img src="{{ $prog->movie->poster_url }}" style="width:20px;height:28px;object-fit:cover;border-radius:2px;flex-shrink:0">
+                @endif
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm truncate">{{ $prog->movie?->localTitle() ?? '—' }}</p>
+                    <p class="text-xs text-gray-500">{{ $prog->movie?->year }}</p>
                 </div>
                 <span class="text-xs text-gray-400 flex-shrink-0">{{ $prog->views }}×</span>
             </div>
@@ -155,19 +181,24 @@
             @foreach($recentProgress as $prog)
             <div class="flex items-center gap-3 px-5 py-3">
                 <div class="w-7 h-7 rounded-full bg-red-600/20 flex items-center justify-center text-xs font-bold text-red-400 flex-shrink-0">
-                    {{ strtoupper(substr($prog->user->name ?? '?', 0, 1)) }}
+                    {{ strtoupper(substr($prog['user']?->name ?? '?', 0, 1)) }}
                 </div>
+                @if($prog['poster'])
+                <img src="{{ $prog['poster'] }}" style="width:20px;height:28px;object-fit:cover;border-radius:2px;flex-shrink:0">
+                @endif
                 <div class="flex-1 min-w-0">
                     <p class="text-sm truncate">
-                        <span class="font-medium">{{ $prog->user->name ?? '—' }}</span>
+                        <span class="font-medium">{{ $prog['user']?->name ?? '—' }}</span>
                         <span class="text-gray-500"> · </span>
-                        <span class="text-gray-300">{{ $prog->episode?->serie?->title ?? '—' }}</span>
-                        <span class="text-gray-500"> T{{ $prog->episode?->season }}E{{ $prog->episode?->episode }}</span>
+                        <span class="text-gray-300">{{ $prog['title'] ?? '—' }}</span>
+                        <span class="text-[10px] ml-1 {{ $prog['type'] === 'movie' ? 'text-blue-400' : 'text-purple-400' }}">
+                            {{ $prog['type'] === 'movie' ? '🎬' : '📺' }}
+                        </span>
                     </p>
-                    <p class="text-xs text-gray-600">{{ $prog->updated_at->diffForHumans() }}</p>
+                    <p class="text-xs text-gray-600">{{ $prog['updated_at']->diffForHumans() }}</p>
                 </div>
-                <span class="text-xs flex-shrink-0 {{ $prog->completed ? 'text-green-500' : 'text-gray-600' }}">
-                    {{ $prog->completed ? '✓' : gmdate('i:s', $prog->position) }}
+                <span class="text-xs flex-shrink-0 {{ $prog['completed'] ? 'text-green-500' : 'text-gray-600' }}">
+                    {{ $prog['completed'] ? '✓' : ($prog['percent'] . '%') }}
                 </span>
             </div>
             @endforeach

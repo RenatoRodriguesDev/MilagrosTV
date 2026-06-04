@@ -409,26 +409,8 @@ async function searchRequest() {
     const res = document.getElementById('req-results');
     res.innerHTML = `<p class="text-gray-500 text-xs text-center py-4">${REQ_SEARCHING}</p>`;
 
-    const [movies, series] = await Promise.all([
-        fetch(`/admin/movies/tmdb-search?query=${encodeURIComponent(q)}`).then(r => r.json()).catch(() => []),
-        fetch(`/admin/series/tmdb-search?query=${encodeURIComponent(q)}`).then(r => r.json()).catch(() => []),
-    ]);
-
-    // Normalise raw TMDB fields
-    const normalise = (item, type) => ({
-        tmdb_id:        item.id,
-        type,
-        title:          item.title || item.name || '',
-        original_title: item.original_title || item.original_name || null,
-        poster_url:     item.poster_path ? TMDB_IMG + item.poster_path : null,
-        year:           (item.release_date || item.first_air_date || '').substring(0, 4) || null,
-        popularity:     item.popularity || 0,
-    });
-
-    const items = [
-        ...movies.map(m => normalise(m, 'movie')),
-        ...series.map(s => normalise(s, 'tv')),
-    ].sort((a, b) => b.popularity - a.popularity).slice(0, 8);
+    const items = await fetch(`/content-requests/tmdb-search?query=${encodeURIComponent(q)}`)
+        .then(r => r.json()).catch(() => []);
 
     if (!items.length) { res.innerHTML = `<p class="text-gray-500 text-xs text-center py-4">${REQ_NOT_FOUND}</p>`; return; }
 

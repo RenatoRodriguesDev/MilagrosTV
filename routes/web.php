@@ -56,12 +56,18 @@ Route::middleware('auth')->group(function () {
     Route::get('/subtitles/search', [SubtitleController::class, 'search'])->name('subtitles.search');
     Route::get('/subtitles/download', [SubtitleController::class, 'download'])->name('subtitles.download');
 
-    // Progresso de visualização
+    // Progresso de visualização — episódios
     Route::get('/progress/{episode}', [WatchProgressController::class, 'show'])->name('progress.show');
     Route::post('/progress/{episode}', [WatchProgressController::class, 'store'])->name('progress.store');
     Route::delete('/progress/{episode}/dismiss', [WatchProgressController::class, 'destroy'])->name('progress.dismiss');
 
+    // Progresso de visualização — filmes
+    Route::get('/progress/movie/{movie}', [\App\Http\Controllers\MovieProgressController::class, 'show'])->name('movie-progress.show');
+    Route::post('/progress/movie/{movie}', [\App\Http\Controllers\MovieProgressController::class, 'store'])->name('movie-progress.store');
+    Route::delete('/progress/movie/{movie}/dismiss', [\App\Http\Controllers\MovieProgressController::class, 'destroy'])->name('movie-progress.dismiss');
+
     // Content requests
+    Route::get('/content-requests/tmdb-search', [ContentRequestController::class, 'tmdbSearch'])->name('content-requests.tmdb-search');
     Route::post('/content-requests', [ContentRequestController::class, 'store'])->name('content-requests.store');
 
     // Scraper (extract player from external sites)
