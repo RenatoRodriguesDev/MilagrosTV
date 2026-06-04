@@ -114,9 +114,10 @@ class TmdbService
             }
 
             $translations[$appLang] = [
-                'title'    => $data[$titleKey] ?? $data['original_' . $titleKey] ?? null,
-                'synopsis' => $data['overview'] ?? null,
-                'genres'   => $genres,
+                'title'      => $data[$titleKey] ?? $data['original_' . $titleKey] ?? null,
+                'synopsis'   => $data['overview'] ?? null,
+                'genres'     => $genres,
+                'poster_url' => $this->posterUrl($data['poster_path'] ?? null),
             ];
         }
 

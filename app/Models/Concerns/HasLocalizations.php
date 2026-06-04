@@ -21,4 +21,10 @@ trait HasLocalizations
         $locale = app()->getLocale();
         return $this->translations[$locale]['genres'] ?? $this->genres ?? [];
     }
+
+    public function localPosterUrl(): ?string
+    {
+        $locale = app()->getLocale();
+        return $this->translations[$locale]['poster_url'] ?? $this->poster_url ?? null;
+    }
 }

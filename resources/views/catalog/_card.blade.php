@@ -11,8 +11,8 @@
     {{-- Poster --}}
     <div class="relative aspect-[2/3] rounded-xl overflow-hidden bg-gray-900">
 
-        @if($item->poster_url)
-            <img src="{{ $item->poster_url }}"
+        @if($item->localPosterUrl())
+            <img src="{{ $item->localPosterUrl() }}"
                  alt="{{ $item->title }}"
                  class="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
                  loading="lazy"

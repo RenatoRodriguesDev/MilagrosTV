@@ -6,9 +6,9 @@
 
 {{-- Hero --}}
 <div class="relative min-h-[50vh] flex items-end overflow-hidden">
-    @if($movie->poster_url)
+    @if($movie->localPosterUrl())
     <div class="absolute inset-0">
-        <img src="{{ $movie->poster_url }}" alt="" class="w-full h-full object-cover object-top scale-110" style="filter: blur(20px); transform-origin: top center;">
+        <img src="{{ $movie->localPosterUrl() }}" alt="" class="w-full h-full object-cover object-top scale-110" style="filter: blur(20px); transform-origin: top center;">
         <div class="absolute inset-0 bg-black/70"></div>
         <div class="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-[#0a0a0a]/40 to-black/20"></div>
         <div class="absolute inset-0 bg-gradient-to-r from-[#0a0a0a]/80 to-transparent"></div>
@@ -19,9 +19,9 @@
 
     <div class="relative max-w-5xl mx-auto px-6 pt-28 pb-10 w-full flex gap-8 items-end">
 
-        @if($movie->poster_url)
+        @if($movie->localPosterUrl())
         <div class="hidden sm:block flex-shrink-0">
-            <img src="{{ $movie->poster_url }}" alt="{{ $movie->localTitle() }}"
+            <img src="{{ $movie->localPosterUrl() }}" alt="{{ $movie->localTitle() }}"
                  class="w-36 rounded-xl shadow-2xl border border-white/10">
         </div>
         @endif

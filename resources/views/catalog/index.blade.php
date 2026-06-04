@@ -12,9 +12,9 @@
 @if($featured && !$search && !$genre)
 <div class="relative h-[55vh] min-h-[360px] flex items-end overflow-hidden w-full">
     {{-- Background --}}
-    @if($featured->poster_url)
+    @if($featured->localPosterUrl())
     <div class="absolute inset-0">
-        <img src="{{ $featured->poster_url }}" alt="" class="w-full h-full object-cover object-top scale-110" style="filter: blur(2px);">
+        <img src="{{ $featured->localPosterUrl() }}" alt="" class="w-full h-full object-cover object-top scale-110" style="filter: blur(2px);">
         <div class="absolute inset-0 bg-gradient-to-r from-black via-black/60 to-transparent"></div>
         <div class="absolute inset-0 bg-gradient-to-t from-[#0a0a0a] via-transparent to-black/30"></div>
     </div>
@@ -129,8 +129,8 @@
                     class="absolute top-2 right-2 z-10 w-6 h-6 rounded-full bg-black/70 text-white text-xs flex items-center justify-center transition hover:bg-red-600">✕</button>
 
                 <a href="{{ route('catalog.serie', $serie) }}" class="block">
-                    @if($serie->poster_url)
-                    <img src="{{ $serie->poster_url }}" class="w-full h-64 object-cover">
+                    @if($serie->localPosterUrl())
+                    <img src="{{ $serie->localPosterUrl() }}" class="w-full h-64 object-cover">
                     @else
                     <div class="w-full h-64 bg-gray-700 flex items-center justify-center text-3xl">📺</div>
                     @endif
