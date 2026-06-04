@@ -3,10 +3,12 @@
 namespace App\Http\Controllers\Admin;
 
 use App\Http\Controllers\Controller;
+use App\Http\Controllers\PushController;
 use App\Models\ContentRequest;
 use App\Models\Movie;
 use App\Models\Serie;
 use App\Models\Episode;
+use App\Models\UserNotification;
 use App\Services\TmdbService;
 
 class ContentRequestAdminController extends Controller
@@ -67,7 +69,23 @@ class ContentRequestAdminController extends Controller
 
         $contentRequest->update(['status' => 'imported']);
 
-        return back()->with('success', "\"{$contentRequest->title}\" importado com sucesso.");
+        // Notify the user who requested the content
+        $title   = $contentRequest->title;
+        $userId  = $contentRequest->user_id;
+        $notifUrl = route($contentRequest->type === 'movie' ? 'catalog.index' : 'catalog.index', ['type' => $contentRequest->type === 'movie' ? 'movies' : 'series']);
+
+        UserNotification::create([
+            'user_id' => $userId,
+            'type'    => 'content_available',
+            'title'   => "\"$title\" está disponível!",
+            'body'    => "O conteúdo que pediste foi adicionado ao catálogo.",
+            'url'     => $notifUrl,
+            'read'    => false,
+        ]);
+
+        PushController::sendToUser($userId, "✅ \"$title\" disponível", "O conteúdo que pediste foi adicionado ao catálogo.", $notifUrl);
+
+        return back()->with('success', "\"{$title}\" importado com sucesso.");
     }
 
     public function reject(ContentRequest $contentRequest)

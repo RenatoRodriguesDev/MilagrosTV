@@ -436,6 +436,7 @@
             }
         }).catch(() => {});
         @endauth
+
     </script>
 </body>
 </html>

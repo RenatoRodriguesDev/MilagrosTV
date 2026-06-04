@@ -78,4 +78,42 @@ class PushController extends Controller
             }
         }
     }
+
+    public static function sendToUser(int $userId, string $title, string $body, ?string $url = null): void
+    {
+        $vapidPublic  = config('services.vapid.public_key');
+        $vapidPrivate = config('services.vapid.private_key');
+        if (!$vapidPublic || !$vapidPrivate) return;
+
+        $subs = DB::table('push_subscriptions')->where('user_id', $userId)->get();
+        if ($subs->isEmpty()) return;
+
+        $webPush = new WebPush([
+            'VAPID' => [
+                'subject'    => config('app.url'),
+                'publicKey'  => $vapidPublic,
+                'privateKey' => $vapidPrivate,
+            ],
+        ]);
+
+        $payload = json_encode(['title' => $title, 'body' => $body, 'url' => $url ?? '/']);
+
+        foreach ($subs as $sub) {
+            try {
+                $webPush->queueNotification(
+                    Subscription::create([
+                        'endpoint' => $sub->endpoint,
+                        'keys'     => ['p256dh' => $sub->public_key, 'auth' => $sub->auth_token],
+                    ]),
+                    $payload
+                );
+            } catch (\Throwable) {}
+        }
+
+        foreach ($webPush->flush() as $report) {
+            if ($report->isSubscriptionExpired()) {
+                DB::table('push_subscriptions')->where('endpoint', $report->getEndpoint())->delete();
+            }
+        }
+    }
 }

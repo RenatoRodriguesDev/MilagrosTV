@@ -1,11 +1,12 @@
-const CACHE = 'milagrostv-v2';
+const CACHE = 'milagrostv-v3';
 
 const SHELL = [
     '/',
+    '/offline.html',
     '/manifest.json',
     '/icon.svg',
-    'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap',
-    'https://cdn.tailwindcss.com',
+    '/icon-192.png',
+    '/icon-512.png',
 ];
 
 // Install: cache app shell
@@ -87,6 +88,6 @@ self.addEventListener('fetch', e => {
                 caches.open(CACHE).then(c => c.put(e.request, clone));
                 return res;
             })
-            .catch(() => caches.match(e.request))
+            .catch(() => caches.match(e.request).then(cached => cached || caches.match('/offline.html')))
     );
 });
