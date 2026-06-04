@@ -49,6 +49,11 @@ class SerieController extends Controller
         $data['genres'] = array_filter(array_map('trim', explode(',', $request->input('genres', ''))));
 
         if (!empty($data['tmdb_id'])) {
+            $existing = Serie::where('tmdb_id', $data['tmdb_id'])->first();
+            if ($existing) {
+                return redirect()->route('admin.series.edit', $existing)
+                    ->with('warning', 'Esta série já existe — redireccionado para edição.');
+            }
             $data['translations'] = $this->tmdb->fetchTranslations((int) $data['tmdb_id'], 'tv');
             $data['trailer_url']  = $this->tmdb->getTrailerUrl((int) $data['tmdb_id'], 'tv');
         }

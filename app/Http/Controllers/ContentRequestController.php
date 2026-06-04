@@ -41,6 +41,26 @@ class ContentRequestController extends Controller
         );
     }
 
+    public function checkCatalog(Request $request)
+    {
+        $items  = $request->input('items', []); // [{tmdb_id, type}, ...]
+        $result = [];
+
+        foreach ($items as $item) {
+            $tmdbId = (int) ($item['tmdb_id'] ?? 0);
+            $type   = $item['type'] ?? '';
+            if (!$tmdbId) continue;
+
+            $inCatalog = $type === 'movie'
+                ? \App\Models\Movie::where('tmdb_id', $tmdbId)->exists()
+                : \App\Models\Serie::where('tmdb_id', $tmdbId)->exists();
+
+            $result[$tmdbId . '_' . $type] = $inCatalog;
+        }
+
+        return response()->json($result);
+    }
+
     public function store(Request $request)
     {
         $data = $request->validate([
@@ -61,13 +81,13 @@ class ContentRequestController extends Controller
         if ($existing) {
             return response()->json([
                 'ok'      => false,
-                'message' => 'Já pediste este conteúdo.',
+                'message' => __('catalog.request_already_sent'),
                 'status'  => $existing->status,
             ]);
         }
 
         ContentRequest::create($data + ['user_id' => Auth::id()]);
 
-        return response()->json(['ok' => true, 'message' => 'Pedido enviado! O administrador irá analisá-lo.']);
+        return response()->json(['ok' => true, 'message' => __('catalog.request_sent')]);
     }
 }

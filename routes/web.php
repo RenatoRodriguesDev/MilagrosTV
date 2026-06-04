@@ -68,6 +68,7 @@ Route::middleware('auth')->group(function () {
 
     // Content requests
     Route::get('/content-requests/tmdb-search', [ContentRequestController::class, 'tmdbSearch'])->name('content-requests.tmdb-search');
+    Route::post('/content-requests/check-catalog', [ContentRequestController::class, 'checkCatalog'])->name('content-requests.check-catalog');
     Route::post('/content-requests', [ContentRequestController::class, 'store'])->name('content-requests.store');
 
     // Scraper (extract player from external sites)

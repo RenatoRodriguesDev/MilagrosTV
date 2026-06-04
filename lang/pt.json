@@ -89,6 +89,9 @@
     "catalog.request_not_found": "Sem resultados.",
     "catalog.request_searching": "A pesquisar...",
     "catalog.request_send": "Pedir",
+    "catalog.request_available": "Disponível",
+    "catalog.request_sent": "Pedido enviado! O administrador irá analisá-lo.",
+    "catalog.request_already_sent": "Já pediste este conteúdo.",
 
     "profile.member_since": "Membro desde",
     "profile.episodes_started": "Ep. iniciados",

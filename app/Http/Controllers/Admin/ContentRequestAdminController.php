@@ -30,9 +30,10 @@ class ContentRequestAdminController extends Controller
         $tmdbId = (int) $contentRequest->tmdb_id;
 
         if ($contentRequest->type === 'movie') {
-            if (Movie::where('tmdb_id', $tmdbId)->exists()) {
+            $existingMovie = Movie::where('tmdb_id', $tmdbId)->first();
+            if ($existingMovie) {
                 $contentRequest->update(['status' => 'imported']);
-                return back()->with('success', '"{$contentRequest->title}" já estava importado.');
+                return back()->with('warning', "\"{$contentRequest->title}\" já existe no catálogo.");
             }
             $data = $this->tmdb->getMovieDetails($tmdbId);
             Movie::create($this->tmdb->formatMovieData($data) + [
@@ -40,9 +41,10 @@ class ContentRequestAdminController extends Controller
                 'translations' => $this->tmdb->fetchTranslations($tmdbId, 'movie'),
             ]);
         } else {
-            if (Serie::where('tmdb_id', $tmdbId)->exists()) {
+            $existingSerie = Serie::where('tmdb_id', $tmdbId)->first();
+            if ($existingSerie) {
                 $contentRequest->update(['status' => 'imported']);
-                return back()->with('success', '"{$contentRequest->title}" já estava importado.');
+                return back()->with('warning', "\"{$contentRequest->title}\" já existe no catálogo.");
             }
             $data  = $this->tmdb->getSeriesDetails($tmdbId);
             $serie = Serie::create($this->tmdb->formatSeriesData($data) + [

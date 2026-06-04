@@ -133,6 +133,11 @@
                     {{ session('success') }}
                 </div>
             @endif
+            @if(session('warning'))
+                <div class="mb-6 bg-yellow-900/40 border border-yellow-700/40 text-yellow-300 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
+                    ⚠️ {{ session('warning') }}
+                </div>
+            @endif
             @if(session('error'))
                 <div class="mb-6 bg-red-900/40 border border-red-700/40 text-red-300 px-4 py-3 rounded-xl text-sm">{{ session('error') }}</div>
             @endif

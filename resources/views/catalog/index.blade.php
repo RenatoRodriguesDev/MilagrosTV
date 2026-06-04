@@ -402,6 +402,9 @@ const TMDB_IMG       = 'https://image.tmdb.org/t/p/w92';
 const REQ_SEARCHING  = '{{ __('catalog.request_searching') }}';
 const REQ_NOT_FOUND  = '{{ __('catalog.request_not_found') }}';
 const REQ_SEND_LABEL = '{{ __('catalog.request_send') }}';
+const REQ_AVAILABLE  = '{{ __('catalog.request_available') }}';
+const LABEL_MOVIE    = '{{ __('common.movie') }}';
+const LABEL_SERIE    = '{{ __('common.serie') }}';
 
 async function searchRequest() {
     const q = document.getElementById('req-query').value.trim();
@@ -414,21 +417,37 @@ async function searchRequest() {
 
     if (!items.length) { res.innerHTML = `<p class="text-gray-500 text-xs text-center py-4">${REQ_NOT_FOUND}</p>`; return; }
 
-    res.innerHTML = items.map((item, i) => `
+    // Check which items already exist in the catalog
+    let catalogStatus = {};
+    try {
+        const checkRes = await fetch('/content-requests/check-catalog', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
+            body: JSON.stringify({ items: items.map(i => ({ tmdb_id: i.tmdb_id, type: i.type })) }),
+        });
+        catalogStatus = await checkRes.json();
+    } catch (_) {}
+
+    res.innerHTML = items.map((item, i) => {
+        const key       = item.tmdb_id + '_' + item.type;
+        const available = catalogStatus[key] === true;
+        const typeLabel = item.type === 'movie' ? LABEL_MOVIE : LABEL_SERIE;
+        const poster    = item.poster_url
+            ? `<img src="${item.poster_url}" class="w-10 h-14 object-cover rounded flex-shrink-0" loading="lazy">`
+            : '<div class="w-10 h-14 bg-gray-700 rounded flex-shrink-0 flex items-center justify-center text-gray-600 text-lg">🎬</div>';
+        const action    = available
+            ? `<span class="flex-shrink-0 text-xs text-green-400 font-semibold flex items-center gap-1"><svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/></svg>${REQ_AVAILABLE}</span>`
+            : `<button onclick="submitRequest(reqItems[${i}])" class="flex-shrink-0 text-xs bg-white/10 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg font-semibold transition">${REQ_SEND_LABEL}</button>`;
+        return `
         <div class="flex items-center gap-3 bg-gray-800/60 hover:bg-gray-800 rounded-xl px-3 py-2.5 transition">
-            ${item.poster_url
-                ? `<img src="${item.poster_url}" class="w-10 h-14 object-cover rounded flex-shrink-0" loading="lazy">`
-                : '<div class="w-10 h-14 bg-gray-700 rounded flex-shrink-0 flex items-center justify-center text-gray-600 text-lg">🎬</div>'}
+            ${poster}
             <div class="flex-1 min-w-0">
                 <p class="text-sm font-semibold text-white truncate">${item.title}</p>
-                <p class="text-xs text-gray-500">${item.type === 'movie' ? 'Filme' : 'Série'}${item.year ? ' · ' + item.year : ''}</p>
+                <p class="text-xs text-gray-500">${typeLabel}${item.year ? ' · ' + item.year : ''}</p>
             </div>
-            <button onclick="submitRequest(reqItems[${i}])"
-                class="flex-shrink-0 text-xs bg-white/10 hover:bg-red-600 text-white px-3 py-1.5 rounded-lg font-semibold transition">
-                ${REQ_SEND_LABEL}
-            </button>
-        </div>
-    `).join('');
+            ${action}
+        </div>`;
+    }).join('');
 
     window.reqItems = items;
 }

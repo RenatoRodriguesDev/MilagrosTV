@@ -47,6 +47,11 @@ class MovieController extends Controller
         $data['genres'] = array_filter(array_map('trim', explode(',', $request->input('genres', ''))));
 
         if (!empty($data['tmdb_id'])) {
+            $existing = Movie::where('tmdb_id', $data['tmdb_id'])->first();
+            if ($existing) {
+                return redirect()->route('admin.movies.edit', $existing)
+                    ->with('warning', 'Este filme já existe — redireccionado para edição.');
+            }
             $data['translations'] = $this->tmdb->fetchTranslations((int) $data['tmdb_id'], 'movie');
             $data['trailer_url']  = $this->tmdb->getTrailerUrl((int) $data['tmdb_id'], 'movie');
         }
