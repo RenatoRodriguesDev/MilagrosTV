@@ -314,8 +314,8 @@ async function playMoviePiratahub() {
 // Online movie player
 const MOVIE_TMDB_ID = '{{ $movie->tmdb_id }}';
 const MOVIE_SOURCES = [
-    { label: 'Fonte 1', url: () => `https://vidlink.pro/movie/${MOVIE_TMDB_ID}` },
-    { label: 'Fonte 2', url: () => `https://vidsrc.to/embed/movie/${MOVIE_TMDB_ID}` },
+    { label: 'Fonte 1', url: () => `https://vidsrc.to/embed/movie/${MOVIE_TMDB_ID}` },
+    { label: 'Fonte 2', url: () => `https://vidlink.pro/movie/${MOVIE_TMDB_ID}` },
     { label: 'Fonte 3', url: () => `https://multiembed.mov/?video_id=${MOVIE_TMDB_ID}&tmdb=1` },
     { label: 'Fonte 4', url: () => `https://nhdapi.com/embed/movie/${MOVIE_TMDB_ID}?download=false` },
 ];
