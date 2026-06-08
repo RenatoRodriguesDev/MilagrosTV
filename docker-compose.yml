@@ -19,6 +19,11 @@ services:
     environment:
       APP_ENV: local
       APP_DEBUG: "true"
+      CINEMACITY_COOKIE_USER_ID: ${CINEMACITY_COOKIE_USER_ID}
+      CINEMACITY_COOKIE_PASSWORD: ${CINEMACITY_COOKIE_PASSWORD}
+      CINEMACITY_EMAIL: ${CINEMACITY_EMAIL}
+      CINEMACITY_PASSWORD: ${CINEMACITY_PASSWORD}
+      FLARESOLVERR_URL: "http://flaresolverr:8191"
     restart: unless-stopped
 
   redis:
@@ -26,6 +31,12 @@ services:
     restart: unless-stopped
     volumes:
       - redis_data:/data
+
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:latest
+    restart: unless-stopped
+    environment:
+      - LOG_LEVEL=info
 
 volumes:
   db_data:

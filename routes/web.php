@@ -76,6 +76,10 @@ Route::middleware('auth')->group(function () {
     Route::get('/scrape/find', [\App\Http\Controllers\ScraperController::class, 'find'])->name('scrape.find');
     Route::get('/scrape/find-movie', [\App\Http\Controllers\ScraperController::class, 'findMovie'])->name('scrape.find-movie');
 
+    // CinemaCity — stream URL for ESP content
+    Route::get('/cinemacity/serie/{serie}/{season}/{episode}', [\App\Http\Controllers\CinemaCityController::class, 'episode'])->name('cinemacity.episode');
+    Route::get('/cinemacity/movie/{movie}', [\App\Http\Controllers\CinemaCityController::class, 'movie'])->name('cinemacity.movie');
+
     // Watchlist
     Route::get('/watchlist', [WatchlistController::class, 'index'])->name('watchlist.index');
     Route::post('/watchlist', [WatchlistController::class, 'toggle'])->name('watchlist.toggle');

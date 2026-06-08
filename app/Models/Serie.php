@@ -12,7 +12,7 @@ class Serie extends Model
 
     protected $fillable = [
         'title', 'original_title', 'year', 'genres', 'slug',
-        'synopsis', 'poster_url', 'trailer_url', 'tmdb_id', 'rating', 'seasons', 'translations', 'piratahub_slug',
+        'synopsis', 'poster_url', 'trailer_url', 'tmdb_id', 'rating', 'seasons', 'translations', 'piratahub_slug', 'cinemacity_id',
     ];
 
     public function getRouteKeyName(): string { return 'slug'; }

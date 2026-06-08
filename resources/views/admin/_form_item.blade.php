@@ -126,6 +126,19 @@
                 @endif
 
                 <div class="sm:col-span-2">
+                    <label class="block text-sm text-gray-400 mb-1">🎬 CinemaCity ID (ESP 1080p)</label>
+                    <div class="flex items-center gap-2">
+                        <span class="text-gray-500 text-sm flex-shrink-0">cinemacity.cc/{{ $type === 'movie' ? 'movies' : 'tv-series' }}/</span>
+                        <input type="text" name="cinemacity_id" id="field-cinemacity_id"
+                            value="{{ old('cinemacity_id', $item?->cinemacity_id) }}"
+                            placeholder="1628-from"
+                            class="flex-1 bg-gray-800 border border-gray-600 rounded px-3 py-2 text-white focus:outline-none focus:border-green-500">
+                        <span class="text-gray-500 text-sm flex-shrink-0">.html</span>
+                    </div>
+                    <p class="text-xs text-gray-600 mt-1">Preenche para activar "Fonte ESP CC" no player (stream HLS directo)</p>
+                </div>
+
+                <div class="sm:col-span-2">
                     <label class="block text-sm text-gray-400 mb-1">URL do Poster</label>
                     <input type="url" name="poster_url" id="field-poster_url"
                         value="{{ old('poster_url', $item?->poster_url) }}"

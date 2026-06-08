@@ -43,7 +43,7 @@ class SerieController extends Controller
 
         $data = $request->only([
             'title', 'original_title', 'year', 'synopsis',
-            'poster_url', 'tmdb_id', 'rating', 'seasons', 'piratahub_slug',
+            'poster_url', 'tmdb_id', 'rating', 'seasons', 'piratahub_slug', 'cinemacity_id',
         ]);
 
         $data['genres'] = array_filter(array_map('trim', explode(',', $request->input('genres', ''))));
@@ -76,7 +76,7 @@ class SerieController extends Controller
 
         $data = $request->only([
             'title', 'original_title', 'year', 'synopsis',
-            'poster_url', 'tmdb_id', 'rating', 'seasons', 'piratahub_slug',
+            'poster_url', 'tmdb_id', 'rating', 'seasons', 'piratahub_slug', 'cinemacity_id',
         ]);
 
         $data['genres'] = array_filter(array_map('trim', explode(',', $request->input('genres', ''))));

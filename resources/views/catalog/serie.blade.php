@@ -461,9 +461,9 @@ function playOnline(season, episode, label, episodeId) {
     // Source definitions — user can switch in the modal header
     window._onlineSources = [
         { label: 'Fonte 1', url: `https://vidsrc.to/embed/tv/${TMDB_ID}/${season}/${episode}` },
-        { label: 'Fonte 2', url: `https://vidlink.pro/tv/${TMDB_ID}/${season}/${episode}` },
-        { label: 'Fonte 3', url: `https://multiembed.mov/?video_id=${TMDB_ID}&tmdb=1&s=${season}&e=${episode}` },
-        { label: 'Fonte 4', url: `https://nhdapi.com/embed/tv/${TMDB_ID}/${season}/${episode}?autonext=true&download=false` },
+        @if($serie->cinemacity_id)
+        { label: 'ESP CC', url: null, cinemacity: true, season: season, episode: episode },
+        @endif
     ];
     window._onlineSeason  = season;
     window._onlineEp      = episode;
@@ -481,20 +481,89 @@ function playOnline(season, episode, label, episodeId) {
         sw.classList.remove('hidden');
     }
 
-    iframe.src            = window._onlineSources[0].url;
-    iframe.style.display  = 'block';
+    const video = document.getElementById('video-player');
+    if (video) video.style.display = 'none';
+    _destroyHls();
+
+    const firstSrc = window._onlineSources[0];
+    if (firstSrc.cinemacity) {
+        iframe.style.display = 'none';
+        _loadCinemaCityEpisode(iframe, video, firstSrc.season, firstSrc.episode);
+    } else {
+        iframe.src           = firstSrc.url;
+        iframe.style.display = 'block';
+    }
     lbl.textContent       = label;
     modal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
 }
 
 function switchOnlineSource(idx) {
+    const src    = window._onlineSources[idx];
     const iframe = document.getElementById('iframe-player');
-    iframe.src = window._onlineSources[idx].url;
+    const video  = document.getElementById('video-player');
+
+    // Update button styles
     window._onlineSources.forEach((_, i) => {
         const btn = document.getElementById(`osrc-${i}`);
         if (btn) btn.className = `text-[10px] px-2 py-0.5 rounded font-semibold transition ${i===idx?'bg-red-600 text-white':'bg-white/10 text-gray-400 hover:bg-white/20'}`;
     });
+
+    if (src.cinemacity) {
+        _loadCinemaCityEpisode(iframe, video, src.season, src.episode);
+    } else {
+        _destroyHls();
+        video.style.display  = 'none';
+        iframe.style.display = 'block';
+        iframe.src           = src.url;
+    }
+}
+
+let _hlsInstance = null;
+
+function _destroyHls() {
+    if (_hlsInstance) { _hlsInstance.destroy(); _hlsInstance = null; }
+}
+
+function _loadCinemaCityEpisode(iframe, video, season, episode) {
+    iframe.style.display = 'none';
+    iframe.src           = '';
+    video.style.display  = 'block';
+    video.poster         = '';
+
+    const serieId = '{{ $serie->id }}';
+    const url     = `/cinemacity/serie/${serieId}/${season}/${episode}`;
+
+    video.innerHTML = '<p style="color:#aaa;padding:1rem;text-align:center">A carregar ESP CC…</p>';
+
+    fetch(url)
+        .then(r => r.json())
+        .then(data => {
+            if (!data.url) throw new Error(data.error || 'not_found');
+            video.innerHTML = '';
+            _destroyHls();
+            if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+                _hlsInstance = new Hls({ autoStartLoad: true });
+                _hlsInstance.loadSource(data.url);
+                _hlsInstance.attachMedia(video);
+                _hlsInstance.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => {
+                    const tracks = _hlsInstance.audioTracks;
+                    const isLatam = t => { const l = (t.lang||'').toLowerCase(), n = (t.name||'').toLowerCase(); return l==='es-419'||l==='es-la'||l.startsWith('es-mx')||l.startsWith('es-ar')||n.includes('latin')||n.includes('latino'); };
+                    const isEs   = t => { const l = (t.lang||'').toLowerCase(), n = (t.name||'').toLowerCase(); return l.startsWith('es')||n.includes('espa'); };
+                    const idx = tracks.findIndex(isLatam) >= 0 ? tracks.findIndex(isLatam) : tracks.findIndex(isEs);
+                    if (idx >= 0) _hlsInstance.audioTrack = idx;
+                });
+                _hlsInstance.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
+            } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                video.src = data.url;
+                video.play().catch(() => {});
+            } else {
+                video.innerHTML = '<p style="color:#f87171;padding:1rem;text-align:center">HLS não suportado neste browser.</p>';
+            }
+        })
+        .catch(err => {
+            video.innerHTML = `<p style="color:#f87171;padding:1rem;text-align:center">Episódio não disponível em ESP CC.</p>`;
+        });
 }
 
 function saveOnlineProgress() {
@@ -715,6 +784,8 @@ function closePlayer() {
     saveOnlineProgress();
     iframe.src = '';
     iframe.style.display = 'none';
+    const video = document.getElementById('video-player');
+    if (video) { _destroyHls(); video.pause(); video.src = ''; video.style.display = 'none'; }
     const badge = document.getElementById('online-badge');
     if (badge) badge.classList.add('hidden');
     const sw = document.getElementById('online-src-switcher');

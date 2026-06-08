@@ -131,14 +131,15 @@
                 <p class="text-gray-300 text-sm font-medium">{{ $movie->localTitle() }} · 🌐 Online</p>
                 <div class="flex items-center gap-1.5">
                     <button id="msrc-0" onclick="switchMovieSource(0)" class="text-[10px] px-2 py-0.5 rounded bg-red-600 text-white font-semibold">1</button>
-                    <button id="msrc-1" onclick="switchMovieSource(1)" class="text-[10px] px-2 py-0.5 rounded bg-white/10 text-gray-400 hover:bg-white/20 font-semibold">2</button>
-                    <button id="msrc-2" onclick="switchMovieSource(2)" class="text-[10px] px-2 py-0.5 rounded bg-white/10 text-gray-400 hover:bg-white/20 font-semibold">3</button>
-                    <button id="msrc-3" onclick="switchMovieSource(3)" class="text-[10px] px-2 py-0.5 rounded bg-white/10 text-gray-400 hover:bg-white/20 font-semibold">4</button>
+                    @if($movie->cinemacity_id)
+                    <button id="msrc-cc" onclick="switchMovieSource('cc')" class="text-[10px] px-2 py-0.5 rounded bg-white/10 text-gray-400 hover:bg-white/20 font-semibold">ESP CC</button>
+                    @endif
                 </div>
             </div>
             <button onclick="closeOnlineModal()" class="text-gray-400 hover:text-white text-sm">✕ Fechar</button>
         </div>
         <div style="background:#000;border-radius:12px;line-height:0;">
+            <video id="movie-hls-player" controls playsinline style="width:100%;height:75vh;display:none;border-radius:12px;background:#000;"></video>
             <iframe id="online-iframe" frameborder="0" allowfullscreen
                 allow="autoplay; fullscreen"
                 style="width:100%;height:75vh;border:none;border-radius:12px;"></iframe>
@@ -271,6 +272,12 @@ document.getElementById('movie-player-modal')?.addEventListener('click', functio
 });
 @endif
 
+// HLS helpers — defined unconditionally so closeOnlineModal can always call them
+let _movieHls = null;
+function _destroyMovieHls() {
+    if (_movieHls) { try { _movieHls.destroy(); } catch(_) {} _movieHls = null; }
+}
+
 // Piratahub ESP player (auto-slug from Spanish title)
 @php
     $movieTranslations = is_array($movie->translations) ? $movie->translations : json_decode($movie->translations ?? '{}', true);
@@ -315,9 +322,6 @@ async function playMoviePiratahub() {
 const MOVIE_TMDB_ID = '{{ $movie->tmdb_id }}';
 const MOVIE_SOURCES = [
     { label: 'Fonte 1', url: () => `https://vidsrc.to/embed/movie/${MOVIE_TMDB_ID}` },
-    { label: 'Fonte 2', url: () => `https://vidlink.pro/movie/${MOVIE_TMDB_ID}` },
-    { label: 'Fonte 3', url: () => `https://multiembed.mov/?video_id=${MOVIE_TMDB_ID}&tmdb=1` },
-    { label: 'Fonte 4', url: () => `https://nhdapi.com/embed/movie/${MOVIE_TMDB_ID}?download=false` },
 ];
 
 @php $mId = $movie->id; @endphp
@@ -333,11 +337,58 @@ function playMovieOnline() {
 }
 
 function switchMovieSource(idx) {
-    document.getElementById('online-iframe').src = MOVIE_SOURCES[idx].url();
-    MOVIE_SOURCES.forEach((_, i) => {
+    const iframe = document.getElementById('online-iframe');
+    const video  = document.getElementById('movie-hls-player');
+
+    // Update button styles
+    [0,'cc'].forEach(i => {
         const btn = document.getElementById(`msrc-${i}`);
         if (btn) btn.className = `text-[10px] px-2 py-0.5 rounded font-semibold transition ${i===idx?'bg-red-600 text-white':'bg-white/10 text-gray-400 hover:bg-white/20'}`;
     });
+
+    if (idx === 'cc') {
+        // CinemaCity HLS source
+        iframe.style.display = 'none';
+        iframe.src = '';
+        _destroyMovieHls();
+        if (video) {
+            video.style.display = 'block';
+            video.innerHTML = '<p style="color:#aaa;padding:2rem;text-align:center">A carregar ESP CC…</p>';
+        }
+
+        fetch('/cinemacity/movie/{{ $movie->id }}')
+            .then(r => r.json())
+            .then(data => {
+                if (!data.url) throw new Error(data.error || 'not_found');
+                if (video) video.innerHTML = '';
+                if (typeof Hls !== 'undefined' && Hls.isSupported()) {
+                    _movieHls = new Hls({ autoStartLoad: true });
+                    _movieHls.loadSource(data.url);
+                    _movieHls.attachMedia(video);
+                    _movieHls.on(Hls.Events.AUDIO_TRACKS_UPDATED, () => {
+                        const tracks = _movieHls.audioTracks;
+                        const isLatam = t => { const l = (t.lang||'').toLowerCase(), n = (t.name||'').toLowerCase(); return l==='es-419'||l==='es-la'||l.startsWith('es-mx')||l.startsWith('es-ar')||n.includes('latin')||n.includes('latino'); };
+                        const isEs   = t => { const l = (t.lang||'').toLowerCase(), n = (t.name||'').toLowerCase(); return l.startsWith('es')||n.includes('espa'); };
+                        const idx = tracks.findIndex(isLatam) >= 0 ? tracks.findIndex(isLatam) : tracks.findIndex(isEs);
+                        if (idx >= 0) _movieHls.audioTrack = idx;
+                    });
+                    _movieHls.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(() => {}));
+                } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+                    video.src = data.url;
+                    video.play().catch(() => {});
+                } else {
+                    video.innerHTML = '<p style="color:#f87171;padding:1rem;text-align:center">HLS não suportado neste browser.</p>';
+                }
+            })
+            .catch(() => {
+                if (video) video.innerHTML = '<p style="color:#f87171;padding:1rem;text-align:center">Filme não disponível em ESP CC.</p>';
+            });
+    } else {
+        _destroyMovieHls();
+        if (video) video.style.display = 'none';
+        iframe.style.display = 'block';
+        iframe.src = MOVIE_SOURCES[idx].url();
+    }
 }
 
 function closeOnlineModal() {
@@ -354,6 +405,9 @@ function closeOnlineModal() {
         }
         _movieOnlineStart = null;
     }
+    _destroyMovieHls();
+    const hlsVid = document.getElementById('movie-hls-player');
+    if (hlsVid) { hlsVid.pause(); hlsVid.src = ''; hlsVid.style.display = 'none'; }
     document.getElementById('online-modal').classList.add('hidden');
     document.getElementById('online-iframe').src = '';
     document.body.style.overflow = '';

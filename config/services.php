@@ -60,4 +60,12 @@ return [
         'private_key' => env('VAPID_PRIVATE_KEY'),
     ],
 
+    'cinemacity' => [
+        'email'            => env('CINEMACITY_EMAIL'),
+        'password'         => env('CINEMACITY_PASSWORD'),
+        'cookie_user_id'   => env('CINEMACITY_COOKIE_USER_ID'),
+        'cookie_password'  => env('CINEMACITY_COOKIE_PASSWORD'),
+        'flaresolverr'     => env('FLARESOLVERR_URL', 'http://flaresolverr:8191'),
+    ],
+
 ];

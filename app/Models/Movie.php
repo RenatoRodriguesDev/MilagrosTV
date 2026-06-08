@@ -11,7 +11,7 @@ class Movie extends Model
 
     protected $fillable = [
         'title', 'original_title', 'year', 'genres', 'slug',
-        'synopsis', 'poster_url', 'trailer_url', 'video_path', 'tmdb_id', 'rating', 'duration', 'translations', 'piratahub_url',
+        'synopsis', 'poster_url', 'trailer_url', 'video_path', 'tmdb_id', 'rating', 'duration', 'translations', 'piratahub_url', 'cinemacity_id',
     ];
 
     public function getRouteKeyName(): string { return 'slug'; }
