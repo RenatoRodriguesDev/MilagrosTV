@@ -13,6 +13,8 @@ class CinemaCityController extends Controller
 
     public function episode(Serie $serie, int $season, int $episode): JsonResponse
     {
+        set_time_limit(120);
+
         if (!$serie->cinemacity_id) {
             return response()->json(['error' => 'not_configured'], 404);
         }
@@ -28,6 +30,8 @@ class CinemaCityController extends Controller
 
     public function movie(Movie $movie): JsonResponse
     {
+        set_time_limit(120);
+
         if (!$movie->cinemacity_id) {
             return response()->json(['error' => 'not_configured'], 404);
         }

@@ -536,8 +536,10 @@ function _loadCinemaCityEpisode(iframe, video, season, episode) {
 
     video.innerHTML = '<p style="color:#aaa;padding:1rem;text-align:center">A carregar ESP CC…</p>';
 
-    fetch(url)
-        .then(r => r.json())
+    const _ccAbort = new AbortController();
+    const _ccTimer = setTimeout(() => _ccAbort.abort(), 90000);
+    fetch(url, { signal: _ccAbort.signal })
+        .then(r => { clearTimeout(_ccTimer); return r.json(); })
         .then(data => {
             if (!data.url) throw new Error(data.error || 'not_found');
             video.innerHTML = '';

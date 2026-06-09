@@ -356,8 +356,10 @@ function switchMovieSource(idx) {
             video.innerHTML = '<p style="color:#aaa;padding:2rem;text-align:center">A carregar ESP CC…</p>';
         }
 
-        fetch('/cinemacity/movie/{{ $movie->id }}')
-            .then(r => r.json())
+        const _ccAbort = new AbortController();
+        const _ccTimer = setTimeout(() => _ccAbort.abort(), 90000);
+        fetch('/cinemacity/movie/{{ $movie->id }}', { signal: _ccAbort.signal })
+            .then(r => { clearTimeout(_ccTimer); return r.json(); })
             .then(data => {
                 if (!data.url) throw new Error(data.error || 'not_found');
                 if (video) video.innerHTML = '';
