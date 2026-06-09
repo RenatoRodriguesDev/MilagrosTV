@@ -1,4 +1,4 @@
-const CACHE = 'milagrostv-v3';
+const CACHE = 'milagrostv-v4';
 
 const SHELL = [
     '/',
@@ -57,11 +57,13 @@ self.addEventListener('notificationclick', e => {
 self.addEventListener('fetch', e => {
     const url = new URL(e.request.url);
 
-    // Never cache video streams, admin, or API calls
+    // Never cache video streams, admin, API calls, or CDN streaming content
     if (url.pathname.startsWith('/video/') ||
         url.pathname.startsWith('/admin') ||
         url.pathname.startsWith('/progress') ||
         url.pathname.startsWith('/watched') ||
+        url.pathname.startsWith('/cinemacity/') ||
+        url.hostname.endsWith('cccdn.net') ||
         e.request.method !== 'GET') {
         return;
     }
