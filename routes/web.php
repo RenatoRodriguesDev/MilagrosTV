@@ -79,6 +79,7 @@ Route::middleware('auth')->group(function () {
     // CinemaCity — stream URL for ESP content
     Route::get('/cinemacity/serie/{serie}/{season}/{episode}', [\App\Http\Controllers\CinemaCityController::class, 'episode'])->name('cinemacity.episode');
     Route::get('/cinemacity/movie/{movie}', [\App\Http\Controllers\CinemaCityController::class, 'movie'])->name('cinemacity.movie');
+    Route::get('/cinemacity/hls-proxy', [\App\Http\Controllers\CinemaCityController::class, 'hlsProxy'])->name('cinemacity.hls-proxy');
 
     // Watchlist
     Route::get('/watchlist', [WatchlistController::class, 'index'])->name('watchlist.index');
