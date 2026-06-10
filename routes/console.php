@@ -10,3 +10,6 @@ Artisan::command('inspire', function () {
 
 // Sync new episodes from TMDB every day at 04:00
 Schedule::command('episodes:sync-all')->dailyAt('04:00');
+
+// Auto-match cinemacity IDs every day at 03:30
+Schedule::command('cinemacity:match')->dailyAt('03:30')->withoutOverlapping();

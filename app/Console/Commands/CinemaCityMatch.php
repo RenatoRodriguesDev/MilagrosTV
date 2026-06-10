@@ -70,7 +70,7 @@ class CinemaCityMatch extends Command
             return 0;
         }
 
-        if (!$this->confirm("Save {$totalNew} matches to the database?", true)) {
+        if ($this->input->isInteractive() && !$this->confirm("Save {$totalNew} matches to the database?", true)) {
             return 0;
         }
 
