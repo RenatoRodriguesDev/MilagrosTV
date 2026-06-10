@@ -24,6 +24,8 @@ services:
       CINEMACITY_EMAIL: ${CINEMACITY_EMAIL}
       CINEMACITY_PASSWORD: ${CINEMACITY_PASSWORD}
       FLARESOLVERR_URL: "http://flaresolverr:8191"
+      TURNSTILE_SITE_KEY: ${TURNSTILE_SITE_KEY}
+      TURNSTILE_SECRET_KEY: ${TURNSTILE_SECRET_KEY}
     restart: unless-stopped
 
   redis:

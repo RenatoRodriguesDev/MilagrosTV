@@ -7,6 +7,9 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
+    @if(config('services.turnstile.site_key'))
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+    @endif
     <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'sans-serif'] }, colors: { brand: { red: '#E50914' } } } } }</script>
     <style>* { font-family: 'Inter', sans-serif; } body { background-color: #0a0a0a; }</style>
 </head>
@@ -50,6 +53,10 @@
                     <input type="password" name="password_confirmation" required
                         class="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3 text-white placeholder-gray-500 focus:outline-none focus:border-red-500 transition text-sm">
                 </div>
+                @if(config('services.turnstile.site_key'))
+                <div class="cf-turnstile" data-sitekey="{{ config('services.turnstile.site_key') }}" data-theme="dark"></div>
+                @endif
+
                 <button type="submit"
                     class="w-full bg-red-600 hover:bg-red-700 text-white font-semibold py-3 rounded-lg transition text-sm mt-2">
                     Criar conta

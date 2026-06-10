@@ -60,6 +60,11 @@ return [
         'private_key' => env('VAPID_PRIVATE_KEY'),
     ],
 
+    'turnstile' => [
+        'site_key'   => env('TURNSTILE_SITE_KEY'),
+        'secret_key' => env('TURNSTILE_SECRET_KEY'),
+    ],
+
     'cinemacity' => [
         'email'            => env('CINEMACITY_EMAIL'),
         'password'         => env('CINEMACITY_PASSWORD'),

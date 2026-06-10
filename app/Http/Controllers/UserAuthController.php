@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Http;
 
 class UserAuthController extends Controller
 {
@@ -36,10 +37,25 @@ class UserAuthController extends Controller
     public function register(Request $request)
     {
         $data = $request->validate([
-            'name'                  => 'required|string|max:255',
-            'email'                 => 'required|email|unique:users',
-            'password'              => 'required|min:6|confirmed',
+            'name'     => 'required|string|max:255',
+            'email'    => 'required|email|unique:users',
+            'password' => 'required|min:6|confirmed',
         ]);
+
+        // Verify Turnstile token (skip if no secret key configured)
+        $secret = config('services.turnstile.secret_key');
+        if ($secret) {
+            $token    = $request->input('cf-turnstile-response');
+            $response = Http::asForm()->post('https://challenges.cloudflare.com/turnstile/v0/siteverify', [
+                'secret'   => $secret,
+                'response' => $token,
+                'remoteip' => $request->ip(),
+            ]);
+
+            if (!($response->json('success') ?? false)) {
+                return back()->withErrors(['captcha' => 'Verificação de segurança falhou. Tenta novamente.'])->onlyInput('name', 'email');
+            }
+        }
 
         $user = User::create([
             'name'     => $data['name'],
