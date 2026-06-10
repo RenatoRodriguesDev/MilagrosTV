@@ -570,17 +570,28 @@ function _loadCinemaCityEpisode(iframe, video, season, episode) {
 
 function saveOnlineProgress() {
     if (!_onlineEpId || !_onlineStartTime) return;
-    const elapsed = Math.floor((Date.now() - _onlineStartTime) / 1000);
-    if (elapsed < 5) { _onlineEpId = null; _onlineStartTime = null; return; }
 
-    const pos  = Math.min(_onlineBasePos + elapsed, 3600 * 4);
+    const video = document.getElementById('video-player');
+    const usingHls = _hlsInstance && video && video.style.display !== 'none';
+
+    let pos, dur;
+    if (usingHls) {
+        pos = Math.floor(video.currentTime || 0);
+        dur = Math.floor(video.duration || 2700);
+    } else {
+        const elapsed = Math.floor((Date.now() - _onlineStartTime) / 1000);
+        if (elapsed < 5) { _onlineEpId = null; _onlineStartTime = null; return; }
+        pos = Math.min(_onlineBasePos + elapsed, 3600 * 4);
+        dur = 2700;
+    }
+
+    if (pos < 5) { _onlineEpId = null; _onlineStartTime = null; _onlineBasePos = 0; return; }
+
     const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
-
-    // Single POST — no chained fetch
     fetch(`/progress/${_onlineEpId}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': csrf },
-        body: JSON.stringify({ position: pos, duration: 2700, completed: pos > 2600 }),
+        body: JSON.stringify({ position: pos, duration: dur, completed: dur > 0 && pos > dur * 0.9 }),
         keepalive: true,
     }).catch(() => {});
 

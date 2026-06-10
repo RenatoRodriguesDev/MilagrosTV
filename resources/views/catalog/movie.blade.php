@@ -395,13 +395,24 @@ function switchMovieSource(idx) {
 
 function closeOnlineModal() {
     if (_movieOnlineStart) {
-        const elapsed = Math.floor((Date.now() - _movieOnlineStart) / 1000);
-        if (elapsed > 10) {
-            const pos = Math.min(_movieOnlineBase + elapsed, 3600 * 4);
+        const video    = document.getElementById('movie-hls-player');
+        const usingHls = _movieHls && video && video.style.display !== 'none';
+
+        let pos, dur;
+        if (usingHls) {
+            pos = Math.floor(video.currentTime || 0);
+            dur = Math.floor(video.duration || 7200);
+        } else {
+            const elapsed = Math.floor((Date.now() - _movieOnlineStart) / 1000);
+            pos = Math.min(_movieOnlineBase + elapsed, 3600 * 4);
+            dur = 7200;
+        }
+
+        if (pos > 10) {
             fetch(`/progress/movie/{{ $mId }}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
-                body: JSON.stringify({ position: pos, duration: 7200, completed: pos > 6800 }),
+                body: JSON.stringify({ position: pos, duration: dur, completed: dur > 0 && pos > dur * 0.9 }),
                 keepalive: true,
             }).catch(() => {});
         }
