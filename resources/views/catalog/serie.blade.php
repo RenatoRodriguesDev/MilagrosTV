@@ -464,6 +464,7 @@ function playOnline(season, episode, label, episodeId) {
         @if($serie->cinemacity_id)
         { label: 'ESP CC', url: null, cinemacity: true, season: season, episode: episode },
         @endif
+        { label: 'Fonte 3', url: `https://vidlink.pro/tv/${TMDB_ID}/${season}/${episode}` },
     ];
     window._onlineSeason  = season;
     window._onlineEp      = episode;

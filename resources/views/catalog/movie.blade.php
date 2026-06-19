@@ -134,6 +134,7 @@
                     @if($movie->cinemacity_id)
                     <button id="msrc-cc" onclick="switchMovieSource('cc')" class="text-[10px] px-2 py-0.5 rounded bg-white/10 text-gray-400 hover:bg-white/20 font-semibold">ESP CC</button>
                     @endif
+                    <button id="msrc-1" onclick="switchMovieSource(1)" class="text-[10px] px-2 py-0.5 rounded bg-white/10 text-gray-400 hover:bg-white/20 font-semibold">3</button>
                 </div>
             </div>
             <button onclick="closeOnlineModal()" class="text-gray-400 hover:text-white text-sm">✕ Fechar</button>
@@ -322,6 +323,7 @@ async function playMoviePiratahub() {
 const MOVIE_TMDB_ID = '{{ $movie->tmdb_id }}';
 const MOVIE_SOURCES = [
     { label: 'Fonte 1', url: () => `https://vidsrc.to/embed/movie/${MOVIE_TMDB_ID}` },
+    { label: 'Fonte 3', url: () => `https://vidlink.pro/movie/${MOVIE_TMDB_ID}` },
 ];
 
 @php $mId = $movie->id; @endphp
@@ -341,7 +343,7 @@ function switchMovieSource(idx) {
     const video  = document.getElementById('movie-hls-player');
 
     // Update button styles
-    [0,'cc'].forEach(i => {
+    [0,'cc',1].forEach(i => {
         const btn = document.getElementById(`msrc-${i}`);
         if (btn) btn.className = `text-[10px] px-2 py-0.5 rounded font-semibold transition ${i===idx?'bg-red-600 text-white':'bg-white/10 text-gray-400 hover:bg-white/20'}`;
     });
