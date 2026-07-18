@@ -101,6 +101,7 @@ Route::middleware('auth')->group(function () {
     Route::get('/notifications', [NotificationController::class, 'index'])->name('notifications.index');
     Route::post('/notifications/read', [NotificationController::class, 'markRead'])->name('notifications.read');
     Route::get('/notifications/count', [NotificationController::class, 'unreadCount'])->name('notifications.count');
+    Route::delete('/notifications/{notification}', [NotificationController::class, 'destroy'])->name('notifications.destroy');
 
     // Push notifications
     Route::get('/push/vapid-key', [PushController::class, 'vapidKey'])->name('push.vapid-key');

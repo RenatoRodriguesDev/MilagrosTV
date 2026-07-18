@@ -31,4 +31,11 @@ class NotificationController extends Controller
             ->count();
         return response()->json(['count' => $count]);
     }
+
+    public function destroy(UserNotification $notification)
+    {
+        if ($notification->user_id !== Auth::id()) abort(403);
+        $notification->delete();
+        return response()->json(['ok' => true]);
+    }
 }

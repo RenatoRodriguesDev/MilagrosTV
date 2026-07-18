@@ -406,19 +406,30 @@
             const list = document.getElementById('notif-list');
             if (!data.length) { list.innerHTML = '<p class="text-center text-gray-600 py-8 text-sm">{{ __('notifications.empty') }}</p>'; return; }
             list.innerHTML = data.map(n => `
-                <a href="${n.url || '#'}" class="flex items-start gap-3 px-4 py-3 hover:bg-white/5 transition border-b border-white/[.05] last:border-0 ${n.read ? 'opacity-60' : ''}">
-                    <div class="w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${n.read ? 'bg-gray-600' : 'bg-red-500'}"></div>
-                    <div class="flex-1 min-w-0">
-                        <p class="text-sm font-medium text-white truncate">${n.title}</p>
-                        <p class="text-xs text-gray-400 mt-0.5">${n.message}</p>
-                    </div>
-                </a>`).join('');
+                <div class="flex items-start gap-3 px-4 py-3 border-b border-white/[.05] last:border-0 group ${n.read ? 'opacity-60' : ''}">
+                    <a href="${n.url || '#'}" class="flex items-start gap-3 flex-1 min-w-0 hover:opacity-80 transition">
+                        <div class="w-2 h-2 rounded-full mt-1.5 flex-shrink-0 ${n.read ? 'bg-gray-600' : 'bg-red-500'}"></div>
+                        <div class="flex-1 min-w-0">
+                            <p class="text-sm font-medium text-white truncate">${n.title}</p>
+                            <p class="text-xs text-gray-400 mt-0.5">${n.message || ''}</p>
+                        </div>
+                    </a>
+                    <button onclick="deleteNotification(${n.id}, this)" class="text-gray-600 hover:text-red-400 transition text-lg leading-none flex-shrink-0 opacity-0 group-hover:opacity-100 mt-0.5">×</button>
+                </div>`).join('');
         }
 
         async function toggleNotifications() {
             const dd = document.getElementById('notif-dropdown');
             dd.classList.toggle('hidden');
             if (!dd.classList.contains('hidden')) loadNotifications();
+        }
+
+        async function deleteNotification(id, btn) {
+            const csrf = document.querySelector('meta[name="csrf-token"]').content;
+            await fetch(`/notifications/${id}`, { method: 'DELETE', headers: { 'X-CSRF-TOKEN': csrf } });
+            btn.closest('div.group, div[class*="border-b"]').remove();
+            const list = document.getElementById('notif-list');
+            if (!list.children.length) list.innerHTML = '<p class="text-center text-gray-600 py-8 text-sm">{{ __('notifications.empty') }}</p>';
         }
 
         async function markNotificationsRead() {
