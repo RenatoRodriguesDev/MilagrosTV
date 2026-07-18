@@ -31,17 +31,20 @@ class ContentRequestAdminController extends Controller
     {
         $tmdbId = (int) $contentRequest->tmdb_id;
 
+        $notifUrl = null;
+
         if ($contentRequest->type === 'movie') {
             $existingMovie = Movie::where('tmdb_id', $tmdbId)->first();
             if ($existingMovie) {
                 $contentRequest->update(['status' => 'imported']);
                 return back()->with('warning', "\"{$contentRequest->title}\" já existe no catálogo.");
             }
-            $data = $this->tmdb->getMovieDetails($tmdbId);
-            Movie::create($this->tmdb->formatMovieData($data) + [
+            $data     = $this->tmdb->getMovieDetails($tmdbId);
+            $imported = Movie::create($this->tmdb->formatMovieData($data) + [
                 'trailer_url'  => $this->tmdb->getTrailerUrl($tmdbId, 'movie'),
                 'translations' => $this->tmdb->fetchTranslations($tmdbId, 'movie'),
             ]);
+            $notifUrl = route('catalog.movie', $imported->slug);
         } else {
             $existingSerie = Serie::where('tmdb_id', $tmdbId)->first();
             if ($existingSerie) {
@@ -53,6 +56,7 @@ class ContentRequestAdminController extends Controller
                 'trailer_url'  => $this->tmdb->getTrailerUrl($tmdbId, 'tv'),
                 'translations' => $this->tmdb->fetchTranslations($tmdbId, 'tv'),
             ]);
+            $notifUrl = route('catalog.serie', $serie->slug);
             // Import all episodes
             foreach ($data['seasons'] ?? [] as $season) {
                 $n = (int) $season['season_number'];
@@ -70,9 +74,8 @@ class ContentRequestAdminController extends Controller
         $contentRequest->update(['status' => 'imported']);
 
         // Notify the user who requested the content
-        $title   = $contentRequest->title;
-        $userId  = $contentRequest->user_id;
-        $notifUrl = route($contentRequest->type === 'movie' ? 'catalog.index' : 'catalog.index', ['type' => $contentRequest->type === 'movie' ? 'movies' : 'series']);
+        $title  = $contentRequest->title;
+        $userId = $contentRequest->user_id;
 
         UserNotification::create([
             'user_id' => $userId,
