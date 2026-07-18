@@ -7,6 +7,8 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SubtitleController;
 use App\Http\Controllers\UserAuthController;
+use App\Http\Controllers\VerificationController;
+use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\VideoController;
 use App\Http\Controllers\WatchlistController;
 use App\Http\Controllers\WatchProgressController;
@@ -42,8 +44,19 @@ Route::middleware('guest')->group(function () {
     Route::post('/login', [UserAuthController::class, 'login']);
     Route::get('/register', [UserAuthController::class, 'showRegister'])->name('register');
     Route::post('/register', [UserAuthController::class, 'register']);
+    Route::get('/forgot-password', [PasswordResetController::class, 'showForgotForm'])->name('password.request');
+    Route::post('/forgot-password', [PasswordResetController::class, 'sendResetLink'])->name('password.email');
+    Route::get('/reset-password/{token}', [PasswordResetController::class, 'showResetForm'])->name('password.reset');
+    Route::post('/reset-password', [PasswordResetController::class, 'reset'])->name('password.update');
 });
 Route::post('/logout', [UserAuthController::class, 'logout'])->name('logout')->middleware('auth');
+
+// Email verification
+Route::middleware('auth')->group(function () {
+    Route::get('/email/verify', [VerificationController::class, 'notice'])->name('verification.notice');
+    Route::get('/email/verify/{id}/{hash}', [VerificationController::class, 'verify'])->name('verification.verify')->middleware('signed');
+    Route::post('/email/verification-notification', [VerificationController::class, 'resend'])->name('verification.send')->middleware('throttle:6,1');
+});
 
 // Catálogo e features — protegido por auth
 Route::middleware('auth')->group(function () {

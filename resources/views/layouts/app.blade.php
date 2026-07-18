@@ -211,6 +211,21 @@
         </div>
     </nav>
 
+    @auth
+    @if(!auth()->user()->hasVerifiedEmail())
+    <div class="fixed top-0 left-0 right-0 z-[9999] bg-yellow-600 text-black text-sm py-2 px-4 flex items-center justify-between gap-4" style="margin-top:52px">
+        <span>⚠️ Verifica o teu email para ativar a conta.</span>
+        <div class="flex items-center gap-3 shrink-0">
+            <form method="POST" action="{{ route('verification.send') }}" class="inline">
+                @csrf
+                <button type="submit" class="underline font-semibold hover:no-underline">Reenviar email</button>
+            </form>
+            <a href="{{ route('verification.notice') }}" class="font-semibold underline hover:no-underline">Ver</a>
+        </div>
+    </div>
+    @endif
+    @endauth
+
     <main>
         @yield('content')
     </main>

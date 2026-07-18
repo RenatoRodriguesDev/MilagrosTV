@@ -2,8 +2,10 @@
 
 namespace App\Console\Commands;
 
+use App\Http\Controllers\PushController;
 use App\Models\Episode;
 use App\Models\Serie;
+use App\Models\Watchlist;
 use App\Services\TmdbService;
 use Illuminate\Console\Command;
 
@@ -19,7 +21,8 @@ class SyncAllEpisodes extends Command
         $bar = $this->output->createProgressBar($series->count());
         $bar->start();
 
-        $totalNew = 0;
+        $totalNew    = 0;
+        $newPerSerie = [];
 
         foreach ($series as $serie) {
             try {
@@ -33,7 +36,11 @@ class SyncAllEpisodes extends Command
                             ['serie_id' => $serie->id, 'season' => $s, 'episode' => $ep['episode_number']],
                             ['title' => $ep['name'] ?? null]
                         );
-                        if ($result->wasRecentlyCreated) $totalNew++;
+                        if ($result->wasRecentlyCreated) {
+                            $totalNew++;
+                            $newPerSerie[$serie->id] ??= ['serie' => $serie, 'count' => 0];
+                            $newPerSerie[$serie->id]['count']++;
+                        }
                     }
                 }
 
@@ -51,5 +58,29 @@ class SyncAllEpisodes extends Command
         $bar->finish();
         $this->newLine();
         $this->info("Done. {$totalNew} new episode(s) added.");
+
+        if (empty($newPerSerie)) {
+            return;
+        }
+
+        $this->info('Sending push notifications...');
+        foreach ($newPerSerie as ['serie' => $serie, 'count' => $count]) {
+            $userIds = Watchlist::where('item_type', 'serie')
+                ->where('item_id', $serie->id)
+                ->pluck('user_id');
+
+            if ($userIds->isEmpty()) continue;
+
+            $label = $count === 1 ? 'episódio novo' : 'episódios novos';
+            foreach ($userIds as $userId) {
+                PushController::sendToUser(
+                    $userId,
+                    $serie->localTitle(),
+                    "{$count} {$label} disponível",
+                    "/series/{$serie->slug}"
+                );
+            }
+        }
+        $this->info('Notifications sent.');
     }
 }

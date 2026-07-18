@@ -64,7 +64,8 @@ class UserAuthController extends Controller
         ]);
 
         Auth::login($user);
-        return redirect()->route('catalog.index');
+        $user->sendEmailVerificationNotification();
+        return redirect()->route('verification.notice');
     }
 
     public function logout(Request $request)
