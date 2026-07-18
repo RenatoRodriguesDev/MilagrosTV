@@ -58,8 +58,8 @@ Route::middleware('auth')->group(function () {
     Route::post('/email/verification-notification', [VerificationController::class, 'resend'])->name('verification.send')->middleware('throttle:6,1');
 });
 
-// Catálogo e features — protegido por auth
-Route::middleware('auth')->group(function () {
+// Catálogo e features — protegido por auth + email verificado
+Route::middleware(['auth', 'verified'])->group(function () {
     Route::get('/', [CatalogController::class, 'index'])->name('catalog.index');
     Route::get('/series/{serie}', [CatalogController::class, 'serie'])->name('catalog.serie');
     Route::get('/movies/{movie}', [CatalogController::class, 'movie'])->name('catalog.movie');
