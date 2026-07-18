@@ -128,5 +128,11 @@
     "nav.logout": "Sign out",
     "notifications.title": "Notifications",
     "notifications.mark_read": "Mark as read",
-    "notifications.empty": "No notifications."
+    "notifications.empty": "No notifications.",
+    "notif.content_available_title": "\":title\" is now available!",
+    "notif.content_available_body": "The content you requested has been added to the catalog.",
+    "notif.content_rejected_title": "Request rejected",
+    "notif.content_rejected_body": "Your request for \":title\" was not accepted.",
+    "notif.new_request_title": "New content request",
+    "notif.new_request_body": ":user requested \":title\"."
 }

@@ -80,13 +80,13 @@ class ContentRequestAdminController extends Controller
         UserNotification::create([
             'user_id' => $userId,
             'type'    => 'content_available',
-            'title'   => "\"$title\" está disponível!",
-            'message' => "O conteúdo que pediste foi adicionado ao catálogo.",
+            'title'   => __('notif.content_available_title', ['title' => $title]),
+            'message' => __('notif.content_available_body'),
             'url'     => $notifUrl,
             'read'    => false,
         ]);
 
-        PushController::sendToUser($userId, "✅ \"$title\" disponível", "O conteúdo que pediste foi adicionado ao catálogo.", $notifUrl);
+        PushController::sendToUser($userId, "✅ $title", __('notif.content_available_body'), $notifUrl);
 
         return back()->with('success', "\"{$title}\" importado com sucesso.");
     }
@@ -101,13 +101,13 @@ class ContentRequestAdminController extends Controller
         UserNotification::create([
             'user_id' => $userId,
             'type'    => 'content_rejected',
-            'title'   => "Pedido rejeitado",
-            'message' => "O teu pedido de \"$title\" não foi aceite.",
+            'title'   => __('notif.content_rejected_title'),
+            'message' => __('notif.content_rejected_body', ['title' => $title]),
             'url'     => null,
             'read'    => false,
         ]);
 
-        PushController::sendToUser($userId, "❌ Pedido rejeitado", "O teu pedido de \"$title\" não foi aceite.", null);
+        PushController::sendToUser($userId, '❌ ' . __('notif.content_rejected_title'), __('notif.content_rejected_body', ['title' => $title]), null);
 
         return back()->with('success', 'Pedido rejeitado.');
     }

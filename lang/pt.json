@@ -128,5 +128,11 @@
     "nav.logout": "Sair",
     "notifications.title": "Notificações",
     "notifications.mark_read": "Marcar como lidas",
-    "notifications.empty": "Sem notificações."
+    "notifications.empty": "Sem notificações.",
+    "notif.content_available_title": "\":title\" está disponível!",
+    "notif.content_available_body": "O conteúdo que pediste foi adicionado ao catálogo.",
+    "notif.content_rejected_title": "Pedido rejeitado",
+    "notif.content_rejected_body": "O teu pedido de \":title\" não foi aceite.",
+    "notif.new_request_title": "Novo pedido de conteúdo",
+    "notif.new_request_body": ":user pediu \":title\"."
 }

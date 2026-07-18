@@ -101,8 +101,8 @@ class ContentRequestController extends Controller
             UserNotification::create([
                 'user_id' => $adminId,
                 'type'    => 'content_request',
-                'title'   => 'Novo pedido de conteúdo',
-                'message' => "$requester pediu \"$title\".",
+                'title'   => __('notif.new_request_title'),
+                'message' => __('notif.new_request_body', ['user' => $requester, 'title' => $title]),
                 'url'     => $adminUrl,
                 'read'    => false,
             ]);

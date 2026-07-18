@@ -128,5 +128,11 @@
     "nav.logout": "Cerrar sesión",
     "notifications.title": "Notificaciones",
     "notifications.mark_read": "Marcar como leídas",
-    "notifications.empty": "Sin notificaciones."
+    "notifications.empty": "Sin notificaciones.",
+    "notif.content_available_title": "\"¡:title\" ya está disponible!",
+    "notif.content_available_body": "El contenido que solicitaste ha sido añadido al catálogo.",
+    "notif.content_rejected_title": "Solicitud rechazada",
+    "notif.content_rejected_body": "Tu solicitud de \":title\" no fue aceptada.",
+    "notif.new_request_title": "Nueva solicitud de contenido",
+    "notif.new_request_body": ":user solicitó \":title\"."
 }
