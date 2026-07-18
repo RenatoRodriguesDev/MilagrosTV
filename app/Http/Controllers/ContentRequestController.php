@@ -2,7 +2,10 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Controllers\PushController;
 use App\Models\ContentRequest;
+use App\Models\User;
+use App\Models\UserNotification;
 use App\Services\TmdbService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
@@ -87,6 +90,23 @@ class ContentRequestController extends Controller
         }
 
         ContentRequest::create($data + ['user_id' => Auth::id()]);
+
+        // Notify admins of the new request
+        $requester = Auth::user()->name;
+        $title     = $data['title'];
+        $adminIds  = User::where('is_admin', true)->pluck('id');
+        $adminUrl  = route('admin.content-requests.index');
+
+        foreach ($adminIds as $adminId) {
+            UserNotification::create([
+                'user_id' => $adminId,
+                'type'    => 'content_request',
+                'title'   => 'Novo pedido de conteúdo',
+                'message' => "$requester pediu \"$title\".",
+                'url'     => $adminUrl,
+                'read'    => false,
+            ]);
+        }
 
         return response()->json(['ok' => true, 'message' => __('catalog.request_sent')]);
     }

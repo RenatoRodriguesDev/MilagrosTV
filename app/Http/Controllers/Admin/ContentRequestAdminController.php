@@ -78,7 +78,7 @@ class ContentRequestAdminController extends Controller
             'user_id' => $userId,
             'type'    => 'content_available',
             'title'   => "\"$title\" está disponível!",
-            'body'    => "O conteúdo que pediste foi adicionado ao catálogo.",
+            'message' => "O conteúdo que pediste foi adicionado ao catálogo.",
             'url'     => $notifUrl,
             'read'    => false,
         ]);
@@ -91,6 +91,21 @@ class ContentRequestAdminController extends Controller
     public function reject(ContentRequest $contentRequest)
     {
         $contentRequest->update(['status' => 'rejected']);
+
+        $title  = $contentRequest->title;
+        $userId = $contentRequest->user_id;
+
+        UserNotification::create([
+            'user_id' => $userId,
+            'type'    => 'content_rejected',
+            'title'   => "Pedido rejeitado",
+            'message' => "O teu pedido de \"$title\" não foi aceite.",
+            'url'     => null,
+            'read'    => false,
+        ]);
+
+        PushController::sendToUser($userId, "❌ Pedido rejeitado", "O teu pedido de \"$title\" não foi aceite.", null);
+
         return back()->with('success', 'Pedido rejeitado.');
     }
 }
