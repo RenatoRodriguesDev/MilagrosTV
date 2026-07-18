@@ -7,7 +7,6 @@ use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\SearchController;
 use App\Http\Controllers\SubtitleController;
 use App\Http\Controllers\UserAuthController;
-use App\Http\Controllers\VerificationController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\VideoController;
 use App\Http\Controllers\WatchlistController;
@@ -51,15 +50,9 @@ Route::middleware('guest')->group(function () {
 });
 Route::post('/logout', [UserAuthController::class, 'logout'])->name('logout')->middleware('auth');
 
-// Email verification
-Route::middleware('auth')->group(function () {
-    Route::get('/email/verify', [VerificationController::class, 'notice'])->name('verification.notice');
-    Route::get('/email/verify/{id}/{hash}', [VerificationController::class, 'verify'])->name('verification.verify')->middleware('signed');
-    Route::post('/email/verification-notification', [VerificationController::class, 'resend'])->name('verification.send')->middleware('throttle:6,1');
-});
 
-// Catálogo e features — protegido por auth + email verificado
-Route::middleware(['auth', 'verified'])->group(function () {
+// Catálogo e features — protegido por auth
+Route::middleware('auth')->group(function () {
     Route::get('/', [CatalogController::class, 'index'])->name('catalog.index');
     Route::get('/series/{serie}', [CatalogController::class, 'serie'])->name('catalog.serie');
     Route::get('/movies/{movie}', [CatalogController::class, 'movie'])->name('catalog.movie');
